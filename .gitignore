@@ -1,0 +1,35 @@
+# ── Dados e segredos locais (NUNCA commitar) ──
+data/
+logs/
+exports/
+service_account.json
+API.txt
+.env
+.env.*
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDEs ──
+.vscode/
+.idea/
+*.swp
+
+# ── Outros projetos na mesma pasta ──
+taste-skill-main/
+.claude/

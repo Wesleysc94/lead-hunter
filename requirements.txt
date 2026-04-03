@@ -1,0 +1,9 @@
+apify-client
+beautifulsoup4
+flask
+google-auth
+google-generativeai
+google-genai
+gspread
+httpx
+requests

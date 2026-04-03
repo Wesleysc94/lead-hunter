@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Hunter — Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+</head>
+<body>
+
+  <!-- Atmospheric overlays -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="site-header">
+    <div class="header-brand">
+      <span class="brand-icon">⚡</span>
+      <span class="brand-name">Lead Hunter</span>
+      <span class="brand-sub">Dashboard</span>
+    </div>
+    <div class="header-right">
+      <span id="last-updated" class="last-updated">—</span>
+      <span id="run-status-badge" class="status-badge status-idle">PARADO</span>
+      <button id="btn-tour" class="btn btn-ghost btn-sm" title="Abrir guia de uso">? Guia</button>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="dashboard-main">
+
+    <!-- ── 1. STATS ── -->
+    <section class="section">
+      <h2 class="section-title">Visão Geral</h2>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Encontrados</div>
+          <div class="stat-value" id="stat-found">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Processados</div>
+          <div class="stat-value" id="stat-processed">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Qualificados</div>
+          <div class="stat-value" id="stat-qualified">—</div>
+        </div>
+        <div class="stat-card stat-card--hot">
+          <div class="stat-label">HOT 🔥</div>
+          <div class="stat-value" id="stat-hot">—</div>
+        </div>
+        <div class="stat-card stat-card--warm">
+          <div class="stat-label">WARM ✓</div>
+          <div class="stat-value" id="stat-warm">—</div>
+        </div>
+        <div class="stat-card stat-card--muted">
+          <div class="stat-label">Erros</div>
+          <div class="stat-value" id="stat-errors">—</div>
+        </div>
+      </div>
+
+      <div class="conversion-bar-wrap">
+        <span class="conversion-bar-label">Taxa de qualificação</span>
+        <div class="conversion-bar-track">
+          <div class="conversion-bar-fill" id="conversion-bar" style="width:0%"></div>
+        </div>
+        <span class="conversion-bar-pct" id="conversion-pct">0%</span>
+      </div>
+    </section>
+
+    <!-- ── 2. CONTROLES ── -->
+    <section class="section">
+      <h2 class="section-title">Controles do Pipeline</h2>
+
+      <div class="controls-grid">
+        <div class="control-group">
+          <label class="control-label" for="cfg-apify">Máx. chamadas Apify</label>
+          <input class="control-input" id="cfg-apify" type="number" value="50" min="0" max="500">
+        </div>
+        <div class="control-group">
+          <label class="control-label" for="cfg-cities">Cidades (0 = todas as 17)</label>
+          <input class="control-input" id="cfg-cities" type="number" value="0" min="0" max="17">
+        </div>
+        <div class="control-group">
+          <label class="control-label" for="cfg-categories">Categorias (0 = todas as 14)</label>
+          <input class="control-input" id="cfg-categories" type="number" value="0" min="0" max="14">
+        </div>
+        <div class="control-group control-group--checkboxes">
+          <label class="control-check">
+            <input type="checkbox" id="cfg-skip-sheets">
+            Pular Google Sheets
+          </label>
+          <label class="control-check">
+            <input type="checkbox" id="cfg-skip-email" checked>
+            Pular e-mail
+          </label>
+        </div>
+      </div>
+
+      <div class="controls-actions">
+        <button id="btn-start" class="btn btn-primary">
+          <span class="btn-icon">▶</span> Iniciar Pipeline
+        </button>
+        <button id="btn-stop" class="btn btn-danger" disabled>
+          <span class="btn-icon">■</span> Parar
+        </button>
+      </div>
+
+      <div id="run-progress" class="run-progress hidden">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill progress-bar-anim" id="progress-bar-fill"></div>
+        </div>
+        <div class="progress-label" id="progress-label">Iniciando pipeline...</div>
+      </div>
+    </section>
+
+    <!-- ── 3. LOG ── -->
+    <section class="section">
+      <div class="section-header-row">
+        <h2 class="section-title">Log em Tempo Real</h2>
+        <div class="log-controls">
+          <label class="control-check small">
+            <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
+          </label>
+          <button class="btn btn-ghost btn-sm" id="btn-clear-log">Limpar</button>
+        </div>
+      </div>
+
+      <div class="log-filter-row">
+        <button class="log-filter-btn active" data-level="ALL">Tudo</button>
+        <button class="log-filter-btn" data-level="INFO">Info</button>
+        <button class="log-filter-btn" data-level="WARN">Aviso</button>
+        <button class="log-filter-btn" data-level="ERROR">Erro</button>
+      </div>
+
+      <div class="log-container" id="log-container" role="log" aria-live="polite">
+        <span class="log-empty">Aguardando logs...</span>
+      </div>
+
+      <div class="log-footer">
+        <span id="log-line-count">0 linhas</span>
+        <span id="sse-status" class="sse-status sse-connecting">● Conectando...</span>
+      </div>
+    </section>
+
+    <!-- ── 4. LEADS ── -->
+    <section class="section">
+      <div class="section-header-row">
+        <h2 class="section-title">Leads Qualificados</h2>
+        <div class="leads-header-actions">
+          <div class="filter-pills" id="filter-pills">
+            <button class="filter-pill active" data-filter="ALL">Todos</button>
+            <button class="filter-pill filter-pill--hot" data-filter="HOT">HOT 🔥</button>
+            <button class="filter-pill filter-pill--warm" data-filter="WARM">WARM ✓</button>
+            <button class="filter-pill filter-pill--new" id="btn-only-new" data-only-new="false">✦ Apenas novos</button>
+          </div>
+          <div class="search-wrap">
+            <span class="search-icon">⌕</span>
+            <input type="text" id="leads-search" class="search-input" placeholder="Buscar restaurante...">
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-refresh-leads">↻ Atualizar</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="leads-table" id="leads-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Score</th>
+              <th>Restaurante</th>
+              <th>Bairro</th>
+              <th>Link Atual</th>
+              <th>Seguidores</th>
+              <th>Google</th>
+              <th>Pontos Fortes</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="leads-tbody">
+            <tr class="table-empty-row">
+              <td colspan="9">Carregando leads...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="leads-footer">
+        <span id="leads-count">— leads</span>
+        <div class="export-group">
+          <span class="export-label">Exportar:</span>
+          <a href="/api/exports/qualified_leads.csv"  class="export-link" download>CSV</a>
+          <a href="/api/exports/qualified_leads.json" class="export-link" download>JSON</a>
+          <a href="/api/exports/qualified_leads.html" class="export-link" target="_blank">HTML</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
