@@ -200,6 +200,45 @@ def index():
     return render_template("index.html", is_vercel=IS_VERCEL, ver=_static_ver())
 
 
+@app.route("/api/debug")
+def api_debug():
+    """Diagnóstico para identificar por que o Vercel não mostra leads."""
+    import traceback
+    info: dict = {"is_vercel": IS_VERCEL}
+    try:
+        sys.path.insert(0, str(BASE_DIR))
+        from lead_hunter import config as lh_config
+        info["google_sheets_id"] = lh_config.GOOGLE_SHEETS_ID or "(vazio)"
+        info["service_account_json_set"] = bool(lh_config.GOOGLE_SERVICE_ACCOUNT_JSON)
+        info["service_account_file"] = str(lh_config.GOOGLE_SERVICE_ACCOUNT_FILE)
+    except Exception as e:
+        info["config_error"] = str(e)
+        return jsonify(info)
+
+    try:
+        from lead_hunter.sheets_exporter import _authorize_gspread
+        gc = _authorize_gspread()
+        info["auth"] = "OK"
+        sh = gc.open_by_key(lh_config.GOOGLE_SHEETS_ID)
+        info["spreadsheet_title"] = sh.title
+        worksheets = [ws.title for ws in sh.worksheets()]
+        info["worksheets"] = worksheets
+        leads_sheets = [t for t in worksheets if t.startswith("Leads ")]
+        info["leads_sheets"] = leads_sheets
+        if leads_sheets:
+            ws = sh.worksheet(leads_sheets[-1])
+            rows = ws.get_all_records()
+            info["rows_found"] = len(rows)
+            info["first_row_keys"] = list(rows[0].keys()) if rows else []
+        else:
+            info["leads_sheets_error"] = "Nenhuma aba 'Leads XX/YYYY' encontrada na planilha."
+    except Exception as e:
+        info["sheets_error"] = str(e)
+        info["sheets_traceback"] = traceback.format_exc()
+
+    return jsonify(info)
+
+
 @app.route("/api/stats")
 def api_stats():
     if IS_VERCEL:
