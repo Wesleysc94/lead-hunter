@@ -168,12 +168,11 @@ def _read_leads_from_sheets() -> list:
     if not sheets:
         return []
     ws = sheets[-1]
-    # FORMATTED_VALUE returns the displayed text of formulas (e.g. phone number)
-    # instead of the raw formula string or #ERROR!
+    # Use FORMULA so HYPERLINK cells return the formula string =HYPERLINK("url","text")
+    # which _extract_hyperlink_text() can parse. FORMATTED_VALUE returns empty for links.
     try:
-        rows = ws.get_all_records(value_render_option="FORMATTED_VALUE")
+        rows = ws.get_all_records(value_render_option="FORMULA")
     except TypeError:
-        # Older gspread versions don't support value_render_option
         rows = ws.get_all_records()
     return [_sheets_row_to_lead(r) for r in rows if str(r.get("🌡️ Status", "")).strip()]
 
