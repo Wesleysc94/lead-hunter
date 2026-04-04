@@ -280,14 +280,15 @@ def main() -> int:
     for city in cities:
         for category in categories:
             combo_done += 1
-            pct = int(combo_done / total_combos * 100)
-            logger.info("[PROGRESS] %d/%d (%d%%) — %s × %s", combo_done, total_combos, pct, city, category)
             try:
                 places = get_places(city, category, seen_place_ids=processed_place_ids)
                 state["stats"]["found"] += len(places)
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Falha ao coletar Maps em %s / %s: %s", city, category, exc)
                 continue
+            # Report progress AFTER fetching places so % reflects real work done
+            pct = int(combo_done / total_combos * 100)
+            logger.info("[PROGRESS] %d/%d (%d%%) — %s × %s — %d lugares", combo_done, total_combos, pct, city, category, len(places))
 
             for place_data in places:
                 place_id = place_data.get("place_id")

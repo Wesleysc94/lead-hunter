@@ -185,9 +185,19 @@ def api_config_targets():
     })
 
 
+def _static_ver() -> str:
+    """Return mtime-based version string for cache-busting."""
+    try:
+        js  = (BASE_DIR / "dashboard" / "static" / "app.js").stat().st_mtime
+        css = (BASE_DIR / "dashboard" / "static" / "style.css").stat().st_mtime
+        return str(int(max(js, css)))
+    except OSError:
+        return "1"
+
+
 @app.route("/")
 def index():
-    return render_template("index.html", is_vercel=IS_VERCEL)
+    return render_template("index.html", is_vercel=IS_VERCEL, ver=_static_ver())
 
 
 @app.route("/api/stats")
