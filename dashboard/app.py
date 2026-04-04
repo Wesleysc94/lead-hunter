@@ -34,7 +34,8 @@ CRM_STATUSES = {
 EXPORT_WHITELIST = {"qualified_leads.csv", "qualified_leads.json", "qualified_leads.html"}
 
 # Vercel serverless environment detection
-IS_VERCEL = os.environ.get("VERCEL") == "1"
+# VERCEL_URL is auto-set by Vercel for all deployments; VERCEL may vary
+IS_VERCEL = bool(os.environ.get("VERCEL_URL") or os.environ.get("VERCEL"))
 
 LEAD_TABLE_FIELDS = {
     "place_id", "status", "status_display", "score", "name", "category",
