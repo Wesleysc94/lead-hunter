@@ -106,15 +106,27 @@ function updateStatCards(data) {
   if (ts) ts.textContent = new Date().toLocaleTimeString('pt-BR');
 }
 
+function fmtCurrency(val) {
+  if (val == null || val === 0) return 'R$ 0';
+  return 'R$ ' + Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 async function fetchCrmStats() {
   try {
     const res = await fetch('/api/crm/stats');
     if (!res.ok) return;
     const data = await res.json();
-    Object.entries(data).forEach(([status, count]) => {
-      const el = document.getElementById('crm-count-' + status);
-      if (el) el.textContent = count;
+    Object.entries(data).forEach(([key, val]) => {
+      const el = document.getElementById('crm-count-' + key);
+      if (el) el.textContent = val;
     });
+    // Revenue row
+    const totalEl = document.getElementById('revenue-total');
+    const avgEl   = document.getElementById('revenue-avg');
+    const dealsEl = document.getElementById('revenue-deals');
+    if (totalEl) totalEl.textContent = fmtCurrency(data.total_revenue);
+    if (avgEl)   avgEl.textContent   = data.deals_count ? fmtCurrency(data.avg_deal) : '—';
+    if (dealsEl) dealsEl.textContent = data.deals_count || 0;
   } catch (_) { /* silent */ }
 }
 
@@ -152,19 +164,13 @@ function setRunningUI(running) {
     if (bar) { bar.className = 'progress-bar-fill indeterminate'; bar.style.width = ''; }
     if (pctEl) pctEl.textContent = '';
   } else {
-    // Animate to 100% then hide
-    if (bar) {
-      bar.className = 'progress-bar-fill';
-      bar.style.width = '100%';
-    }
-    const label = document.getElementById('progress-label');
-    if (label) label.textContent = 'Concluído ✓';
-    if (pctEl) pctEl.textContent = '100%';
+    // Pipeline finished — hide the bar after a short delay
+    // (100% was already set by the [COMPLETE] log event)
     setTimeout(() => {
       if (progress) progress.classList.add('hidden');
       if (bar) { bar.className = 'progress-bar-fill indeterminate'; bar.style.width = ''; }
       if (pctEl) pctEl.textContent = '';
-    }, 2500);
+    }, 3000);
   }
 }
 
@@ -176,8 +182,13 @@ function updateRealProgress(done, total, pct) {
     bar.className = 'progress-bar-fill';
     bar.style.width = pct + '%';
   }
-  if (label) label.textContent = `Combinação ${done}/${total}`;
-  if (pctEl) pctEl.textContent = pct + '%';
+  if (pct >= 100) {
+    if (label) label.textContent = 'Concluído ✓';
+    if (pctEl) pctEl.textContent = '100%';
+  } else {
+    if (label) label.textContent = `Combinação ${done}/${total}`;
+    if (pctEl) pctEl.textContent = pct + '%';
+  }
 }
 
 function wireRunControls() {
@@ -248,16 +259,26 @@ function connectSSE() {
     // Parse real progress from pipeline logs
     if (event.data.includes('[PROGRESS]')) {
       const m = event.data.match(/\[PROGRESS\]\s+(\d+)\/(\d+)\s+\((\d+)%\)/);
-      if (m) updateRealProgress(m[1], m[2], parseInt(m[3]));
+      if (m) {
+        // Cap at 95% until [COMPLETE] fires — leave room for export/sheets step
+        const pct = Math.min(parseInt(m[3]), 95);
+        updateRealProgress(m[1], m[2], pct);
+      }
+      return;
+    }
+
+    // [COMPLETE] fires only after sheets/email/export are done
+    if (event.data.includes('[COMPLETE]')) {
+      updateRealProgress('✓', '✓', 100);
       return;
     }
 
     // Update progress label with last processing line
-    if (event.data.includes('Processando ') || event.data.includes('Resumo final')) {
+    if (event.data.includes('Processando ')) {
       const label = document.getElementById('progress-label');
       if (label) {
-        const match = event.data.match(/\] (.+)$/);
-        if (match) label.textContent = match[1].slice(0, 120);
+        const match = event.data.match(/Processando (.+?)(\s*\(|$)/);
+        if (match) label.textContent = 'Analisando: ' + match[1].trim().slice(0, 80);
       }
     }
   };
@@ -408,6 +429,8 @@ function renderLeadsTable() {
     const crmLabel = CRM_LABELS[crm] || crm;
     const crmNote = lead.crm_note ? `<div class="crm-note-preview">${escapeHtml(lead.crm_note.slice(0, 60))}${lead.crm_note.length > 60 ? '…' : ''}</div>` : '';
     const contactedAt = lead.contacted_at ? `<div class="crm-date">Enviado ${escapeHtml(lead.contacted_at)}</div>` : '';
+    const contractVal = (crm === 'fechado' && lead.contract_value)
+      ? `<div class="crm-contract-display">${fmtCurrency(lead.contract_value)}</div>` : '';
 
     const phone = lead.phone
       ? `<a href="https://wa.me/55${lead.phone.replace(/\D/g,'')}" target="_blank" class="btn-copy" title="Abrir WhatsApp">📱 ${escapeHtml(lead.phone)}</a>`
@@ -458,6 +481,7 @@ function renderLeadsTable() {
                   title="Atualizar status de abordagem">
             ${escapeHtml(crmLabel)}
           </button>
+          ${contractVal}
           ${crmNote}
           ${contactedAt}
         </td>
@@ -573,6 +597,11 @@ function openCrmModal(placeId, name, currentStatus) {
   const lead = state.leads.find(l => l.place_id === placeId);
   const history = lead ? (lead.crm_history || []) : [];
   const note = lead ? (lead.crm_note || '') : '';
+  const contractValue = lead ? (lead.contract_value || '') : '';
+
+  // Contract value field — show for all, highlight when fechado
+  const valInput = document.getElementById('crm-contract-value');
+  if (valInput) valInput.value = contractValue || '';
 
   document.getElementById('crm-modal-name').textContent = name || 'Lead';
   document.getElementById('crm-note-input').value = note;
@@ -587,8 +616,15 @@ function openCrmModal(placeId, name, currentStatus) {
       document.querySelectorAll('.crm-status-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       updateCrmCurrentLabel();
+      // Highlight value field when fechado is selected
+      const wrap = document.getElementById('crm-value-wrap');
+      if (wrap) wrap.classList.toggle('crm-value-highlighted', btn.dataset.status === 'fechado');
     };
   });
+
+  // Pre-highlight if already fechado
+  const wrap = document.getElementById('crm-value-wrap');
+  if (wrap) wrap.classList.toggle('crm-value-highlighted', (currentStatus || 'novo') === 'fechado');
 
   updateCrmCurrentLabel();
   renderCrmHistory(history);
@@ -620,21 +656,24 @@ async function saveCrmModal() {
   const placeId = state.crmModalPlaceId;
   if (!placeId) return;
   const note = document.getElementById('crm-note-input').value;
+  const valRaw = document.getElementById('crm-contract-value')?.value;
+  const contractValue = valRaw !== '' && valRaw != null ? parseFloat(valRaw) : null;
   try {
     const res = await fetch(`/api/crm/${encodeURIComponent(placeId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: state.crmModalStatus, note }),
+      body: JSON.stringify({ status: state.crmModalStatus, note, contract_value: contractValue }),
     });
     if (!res.ok) { alert('Erro ao salvar CRM'); return; }
+    const data = await res.json();
     // Update in-memory lead
     const lead = state.leads.find(l => l.place_id === placeId);
     if (lead) {
-      const data = await res.json();
-      lead.crm_status = data.entry.status;
-      lead.crm_note   = data.entry.note;
-      lead.crm_history = data.entry.history;
-      lead.contacted_at = data.entry.contacted_at;
+      lead.crm_status      = data.entry.status;
+      lead.crm_note        = data.entry.note;
+      lead.crm_history     = data.entry.history;
+      lead.contacted_at    = data.entry.contacted_at;
+      lead.contract_value  = data.entry.contract_value;
     }
     document.getElementById('modal-crm').classList.add('hidden');
     renderLeadsTable();
@@ -938,22 +977,21 @@ function startTour() {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 function init() {
-  wireRunControls();
-  wireLogControls();
-  wireLeadsControls();
-  wireSelectorModals();
-  wireCrmModal();
+  // Wire controls — each wrapped so one failure doesn't block the others
+  try { wireRunControls(); }    catch(e) { console.error('wireRunControls', e); }
+  try { wireLogControls(); }    catch(e) { console.error('wireLogControls', e); }
+  try { wireLeadsControls(); }  catch(e) { console.error('wireLeadsControls', e); }
+  try { wireSelectorModals(); } catch(e) { console.error('wireSelectorModals', e); }
+  try { wireCrmModal(); }       catch(e) { console.error('wireCrmModal', e); }
 
+  // Data — must run regardless of UI wiring errors
   fetchLeads();
   startStatsPolling();
   connectSSE();
   loadTargets();
 
-  // Guided tour button
   const btnTour = document.getElementById('btn-tour');
-  if (btnTour) {
-    btnTour.addEventListener('click', startTour);
-  }
+  if (btnTour) btnTour.addEventListener('click', startTour);
 }
 
 document.addEventListener('DOMContentLoaded', init);

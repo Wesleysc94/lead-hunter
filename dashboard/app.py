@@ -43,6 +43,7 @@ LEAD_TABLE_FIELDS = {
     "google_rating", "last_post_days", "key_strengths", "whatsapp_message",
     "whatsapp_followup", "instagram_dm", "subject_email", "approach_angle",
     "collected_at", "maps_url", "website", "is_new", "run_count", "first_seen_at",
+    "contract_value",
 }
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -75,6 +76,7 @@ def _crm_entry_for(place_id: str, crm: dict) -> dict:
         "history": [],
         "contacted_at": None,
         "updated_at": None,
+        "contract_value": None,
     })
 
 
@@ -238,10 +240,11 @@ def api_leads():
         # Merge CRM state into every lead
         pid = lead.get("place_id", "")
         crm_entry = _crm_entry_for(pid, crm)
-        stripped["crm_status"] = crm_entry.get("status", "novo")
-        stripped["crm_note"]   = crm_entry.get("note", "")
-        stripped["crm_history"] = crm_entry.get("history", [])
-        stripped["contacted_at"] = crm_entry.get("contacted_at")
+        stripped["crm_status"]      = crm_entry.get("status", "novo")
+        stripped["crm_note"]        = crm_entry.get("note", "")
+        stripped["crm_history"]     = crm_entry.get("history", [])
+        stripped["contacted_at"]    = crm_entry.get("contacted_at")
+        stripped["contract_value"]  = crm_entry.get("contract_value")
         if crm_filter and stripped["crm_status"] != crm_filter:
             continue
         result.append(stripped)
@@ -278,6 +281,13 @@ def api_crm_update(place_id: str):
     if new_note is not None:
         entry["note"] = new_note
 
+    contract_value = body.get("contract_value")
+    if contract_value is not None:
+        try:
+            entry["contract_value"] = float(contract_value) if contract_value != "" else None
+        except (ValueError, TypeError):
+            pass
+
     entry["updated_at"] = now
     crm[place_id] = entry
     _save_crm(crm)
@@ -287,14 +297,23 @@ def api_crm_update(place_id: str):
 @app.route("/api/crm/stats")
 def api_crm_stats():
     if IS_VERCEL:
-        return jsonify({s: 0 for s in CRM_STATUSES})
+        return jsonify({s: 0 for s in CRM_STATUSES} | {"total_revenue": 0, "avg_deal": 0, "deals_count": 0})
     crm = _load_crm()
     counts = {s: 0 for s in CRM_STATUSES}
+    total_revenue = 0.0
+    deals_count = 0
     for entry in crm.values():
         s = entry.get("status", "novo")
         if s in counts:
             counts[s] += 1
-    return jsonify(counts)
+        if s == "fechado" and entry.get("contract_value"):
+            try:
+                total_revenue += float(entry["contract_value"])
+                deals_count += 1
+            except (ValueError, TypeError):
+                pass
+    avg_deal = round(total_revenue / deals_count, 2) if deals_count else 0
+    return jsonify({**counts, "total_revenue": total_revenue, "avg_deal": avg_deal, "deals_count": deals_count})
 
 
 @app.route("/api/stream-logs")
@@ -378,6 +397,9 @@ def api_run_start():
             cmd += ["--skip-sheets"]
         if body.get("skip_email"):
             cmd += ["--skip-email"]
+        # Dashboard always starts a fresh round (keeps qualified leads, resets processed IDs)
+        if not body.get("resume"):
+            cmd += ["--fresh"]
 
         _run_process = subprocess.Popen(
             cmd, cwd=str(BASE_DIR),

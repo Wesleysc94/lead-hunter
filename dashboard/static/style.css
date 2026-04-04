@@ -741,6 +741,58 @@ input, select { font-family: inherit; }
 }
 .funnel-arrow--muted { color: var(--border); font-size: 10px; }
 
+/* ── Revenue row ── */
+.revenue-row {
+  display: flex; gap: var(--gap-md); margin-top: var(--gap-md);
+  padding-top: var(--gap-md); border-top: 1px solid var(--border);
+}
+.revenue-card {
+  flex: 1; background: var(--surface-2); border: 1px solid var(--border);
+  padding: var(--gap-md); text-align: center;
+}
+.revenue-label {
+  font-family: var(--font-heading); font-size: 9px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-secondary); margin-bottom: 6px;
+}
+.revenue-value {
+  font-family: var(--font-heading); font-size: 26px;
+  font-weight: 700; color: #22c55e; line-height: 1;
+}
+.revenue-value--sub { font-size: 20px; color: var(--text-secondary); }
+
+/* ── CRM contract value in table ── */
+.crm-contract-display {
+  font-family: var(--font-heading); font-size: 13px;
+  font-weight: 700; color: #22c55e; margin-top: 4px;
+}
+
+/* ── CRM contract value in modal ── */
+.crm-value-wrap {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: var(--gap-lg);
+  padding: var(--gap-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: border-color var(--t-fast);
+}
+.crm-value-highlighted {
+  border-color: #22c55e !important;
+  background: rgba(34,197,94,0.04) !important;
+}
+.crm-value-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.crm-value-prefix {
+  font-family: var(--font-heading); font-size: 14px;
+  font-weight: 700; color: #22c55e; flex-shrink: 0;
+}
+.crm-value-input {
+  flex: 1; padding: 9px 12px;
+  font-family: var(--font-heading); font-size: 16px;
+  font-weight: 700;
+}
+
 /* ── CRM filter pills ── */
 .crm-pill--novo       { }
 .crm-pill--enviado.active    { color: var(--orange); border-color: var(--orange); background: rgba(232,93,4,0.08); }
@@ -1059,6 +1111,8 @@ input, select { font-family: inherit; }
   .controls-grid { grid-template-columns: 1fr; }
   .controls-actions { flex-direction: column; }
   .controls-actions .btn { width: 100%; justify-content: center; }
+  .revenue-row { flex-wrap: wrap; }
+  .revenue-card { min-width: calc(33% - 8px); }
   .crm-funnel { gap: 2px; }
   .funnel-stage { min-width: 52px; padding: 6px 4px; }
   .funnel-count { font-size: 20px; }

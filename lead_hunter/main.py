@@ -114,6 +114,8 @@ def _parse_args() -> argparse.Namespace:
                         help="Cidades separadas por | (pipe). Vazio = todas.")
     parser.add_argument("--categories", type=str, default="",
                         help="Categorias separadas por | (pipe). Vazio = todas.")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Inicia nova rodada zerando IDs processados (preserva leads qualificados).")
     return parser.parse_args()
 
 
@@ -244,7 +246,19 @@ def main() -> int:
     args = _parse_args()
     state = _load_checkpoint()
 
-    processed_place_ids = set(state.get("processed_place_ids", []))
+    if args.fresh:
+        # New round: scan all cities/categories again, keep accumulated qualified leads
+        processed_place_ids: set[str] = set()
+        state["processed_place_ids"] = []
+        state["apify_calls_used"] = 0
+        state["stats"] = {**DEFAULT_CHECKPOINT["stats"],
+                          "qualified": len(state.get("qualified_leads", [])),
+                          "hot": sum(1 for l in state.get("qualified_leads", []) if l.get("status") == "HOT"),
+                          "warm": sum(1 for l in state.get("qualified_leads", []) if l.get("status") == "WARM")}
+        logger.info("[FRESH] Nova rodada iniciada — %d leads acumulados preservados.",
+                    len(state.get("qualified_leads", [])))
+    else:
+        processed_place_ids = set(state.get("processed_place_ids", []))
     apify_calls_used = int(state.get("apify_calls_used", 0))
     processed_since_checkpoint = 0
 
@@ -361,6 +375,7 @@ def main() -> int:
         local_exports.get("csv_path", ""),
         local_exports.get("html_path", ""),
     )
+    logger.info("[COMPLETE] Pipeline concluído.")
     return 0
 
 

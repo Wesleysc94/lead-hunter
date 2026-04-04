@@ -105,6 +105,21 @@
           <div class="funnel-count" id="crm-count-descartado">—</div>
         </div>
       </div>
+
+      <div class="revenue-row" id="revenue-row">
+        <div class="revenue-card">
+          <div class="revenue-label">Receita Fechada</div>
+          <div class="revenue-value" id="revenue-total">R$ 0</div>
+        </div>
+        <div class="revenue-card">
+          <div class="revenue-label">Ticket Médio</div>
+          <div class="revenue-value revenue-value--sub" id="revenue-avg">—</div>
+        </div>
+        <div class="revenue-card">
+          <div class="revenue-label">Contratos</div>
+          <div class="revenue-value revenue-value--sub" id="revenue-deals">0</div>
+        </div>
+      </div>
     </section>
 
     <!-- ── 3. CONTROLES ── -->
@@ -314,6 +329,16 @@
           <button class="crm-status-btn crm-status-btn--closed" data-status="fechado">Fechado ✓</button>
           <button class="crm-status-btn crm-status-btn--discard" data-status="descartado">Descartado</button>
         </div>
+        <div class="crm-value-wrap" id="crm-value-wrap">
+          <label class="control-label" for="crm-contract-value">Valor do Contrato (R$)</label>
+          <div class="crm-value-row">
+            <span class="crm-value-prefix">R$</span>
+            <input type="number" id="crm-contract-value" class="control-input crm-value-input"
+                   placeholder="3500" min="0" step="100">
+          </div>
+          <span class="control-hint">Preencha ao fechar o contrato</span>
+        </div>
+
         <div class="crm-note-wrap">
           <label class="control-label" for="crm-note-input">Anotação</label>
           <textarea id="crm-note-input" class="crm-note-input" placeholder="Ex: Falei com Marcos, responsável pelo marketing. Pediu para retornar na segunda." rows="3"></textarea>
