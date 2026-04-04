@@ -1043,8 +1043,15 @@ input, select { font-family: inherit; }
 }
 
 /* ── Responsive tweaks ── */
+
+/* Tablet: CRM pills wrap before they overflow their container */
+@media (max-width: 1100px) {
+  #crm-filter-pills { flex-wrap: wrap; gap: 4px; }
+}
+
 @media (max-width: 768px) {
-  /* Header */
+
+  /* ── Header ── */
   .site-header { padding: 10px var(--gap-md); gap: var(--gap-sm); }
   .brand-sub { display: none; }
   .brand-name { font-size: 16px; }
@@ -1052,23 +1059,78 @@ input, select { font-family: inherit; }
   .header-right { gap: var(--gap-sm); }
   .btn-sm { padding: 5px 10px; font-size: 10px; }
 
-  /* Main */
+  /* ── Layout ── */
   .dashboard-main { padding: var(--gap-md); gap: var(--gap-lg); }
   .section { padding: var(--gap-md); }
 
-  /* Log */
-  .log-container { height: 220px; }
-
-  /* Leads header: stack vertically */
-  .leads-header-actions {
-    flex-direction: column; align-items: stretch; gap: var(--gap-sm); width: 100%;
+  /* ── Section headers: stack title above controls ── */
+  .section-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--gap-sm);
   }
+  .section-header-row .section-title { margin-bottom: 0; }
+
+  /* ── Stats ── */
+  .stat-value { font-size: 32px; }
+
+  /* ── Conversion bar: compact single row ── */
+  .conversion-bar-label { min-width: 110px; font-size: 9px; }
+
+  /* ── CRM Funnel: hide arrows, grid of 3 columns ── */
+  .funnel-arrow { display: none; }
+  .crm-funnel {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 0;
+  }
+  .funnel-stage { min-width: unset; padding: 8px var(--gap-sm); }
+  .funnel-count { font-size: 24px; }
+
+  /* ── Revenue row ── */
+  .revenue-row { gap: var(--gap-sm); }
+
+  /* ── Controls ── */
+  .controls-actions { flex-wrap: wrap; }
+  .controls-actions .btn { flex: 1; min-width: 120px; justify-content: center; }
+
+  /* ── Log ── */
+  .log-container { height: 220px; font-size: 11px; }
+  .log-controls { flex-wrap: wrap; gap: var(--gap-sm); }
+  .log-filter-row { flex-wrap: wrap; gap: 2px; }
+
+  /* ── Leads header: full-width column stack ── */
+  .leads-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--gap-sm);
+    width: 100%;
+  }
+
+  /* Score filter pills (3 items): horizontal scroll, no wrap */
   .filter-pills { overflow-x: auto; padding-bottom: 4px; flex-wrap: nowrap; }
+
+  /* CRM filter pills (7 items): compact wrap to multiple lines */
+  #crm-filter-pills {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+    gap: 4px;
+  }
+  #crm-filter-pills .filter-pill {
+    flex: 0 0 auto;
+    font-size: 9px;
+    padding: 4px 8px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Search ── */
   .search-wrap { width: 100%; }
   .search-input { width: 100%; }
   #btn-refresh-leads { align-self: flex-end; }
 
-  /* Leads table → card layout */
+  /* ── Leads table → card layout ── */
   .table-wrap { border: none; overflow-x: visible; }
   .leads-table { display: block; }
   .leads-table thead { display: none; }
@@ -1090,34 +1152,46 @@ input, select { font-family: inherit; }
   .leads-table td.col-google,
   .leads-table td.col-link { display: none; }
 
-  .leads-table td.col-bairro { color: var(--text-secondary); font-size: 12px; }
-  .leads-table td.col-score { display: inline-block; vertical-align: middle; }
-  .leads-table td.col-status { display: inline-block; vertical-align: middle; margin-bottom: 6px; }
-
+  .leads-table td.col-bairro  { color: var(--text-secondary); font-size: 12px; }
+  .leads-table td.col-score   { display: inline-block; vertical-align: middle; }
+  .leads-table td.col-status  { display: inline-block; vertical-align: middle; margin-bottom: 6px; }
   .leads-table td.col-actions { margin-top: 8px; }
+
   .action-group { flex-direction: row; flex-wrap: wrap; gap: 6px; }
   .btn-copy { min-height: 40px; padding: 8px 12px; font-size: 12px; }
   .restaurant-contact { margin-top: 6px; }
 
-  /* Selector modal → bottom sheet full width */
-  .sel-sheet { max-width: 100%; border-left: none; border-right: none; }
+  /* ── Leads footer ── */
+  .leads-footer { flex-direction: column; align-items: flex-start; gap: var(--gap-sm); }
+  .export-group { flex-wrap: wrap; gap: 4px; }
 
-  /* Stats */
-  .stat-value { font-size: 32px; }
+  /* ── Selector modal: full-width bottom sheet ── */
+  .sel-sheet { max-width: 100%; border-left: none; border-right: none; }
 }
 
 @media (max-width: 480px) {
+
+  /* ── Header ── */
   .brand-icon { width: 26px; height: 26px; font-size: 13px; }
+
+  /* ── Controls: single column ── */
   .controls-grid { grid-template-columns: 1fr; }
   .controls-actions { flex-direction: column; }
-  .controls-actions .btn { width: 100%; justify-content: center; }
+  .controls-actions .btn { width: 100%; flex: unset; justify-content: center; }
+
+  /* ── Revenue: 2-column wrap ── */
   .revenue-row { flex-wrap: wrap; }
-  .revenue-card { min-width: calc(33% - 8px); }
-  .crm-funnel { gap: 2px; }
-  .funnel-stage { min-width: 52px; padding: 6px 4px; }
-  .funnel-count { font-size: 20px; }
-  .funnel-label { font-size: 8px; }
-  .funnel-arrow { font-size: 12px; }
+  .revenue-card { flex: 0 0 calc(50% - 6px); }
+  .revenue-value { font-size: 20px; }
+  .revenue-value--sub { font-size: 16px; }
+
+  /* ── Funnel: tighter 3-column grid ── */
+  .crm-funnel { gap: 3px; }
+  .funnel-stage { padding: 6px 4px; }
+  .funnel-count { font-size: 18px; }
+  .funnel-label { font-size: 7px; letter-spacing: 0.06em; }
+
+  /* ── CRM modal: single-column status buttons ── */
   .crm-status-grid { grid-template-columns: 1fr; }
   .crm-sheet { max-height: 90vh; }
 }
