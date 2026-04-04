@@ -97,34 +97,58 @@ def _safe_float(val) -> float | None:
         return None
 
 
+def _clean_sheet_val(val) -> str:
+    """Return empty string for Sheets formula errors (#ERROR!, #VALUE!, etc.)."""
+    s = str(val) if val is not None else ""
+    if s.startswith("#"):
+        return ""
+    return s
+
+
+def _extract_hyperlink_text(val) -> str:
+    """Extract display text from a HYPERLINK formula or return the value as-is."""
+    import re
+    s = _clean_sheet_val(val)
+    # =HYPERLINK("url","display") → extract display
+    m = re.match(r'=HYPERLINK\(["\'].*?["\'],\s*["\'](.+?)["\']\)', s, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    return s
+
+
 def _sheets_row_to_lead(row: dict) -> dict:
     """Convert a Google Sheets row back to the lead dict format."""
     raw_status = str(row.get("🌡️ Status", ""))
     status = raw_status.replace("🔥", "").replace("✓", "").strip()
     strengths_raw = str(row.get("Pontos Fortes", ""))
     strengths = [s.strip() for s in strengths_raw.split("|") if s.strip()]
+
+    # Phone and Instagram may be stored as HYPERLINK formulas or have #ERROR!
+    phone_raw = _extract_hyperlink_text(row.get("Telefone", ""))
+    ig_raw = _extract_hyperlink_text(row.get("Instagram", "")).lstrip("@")
+
     return {
-        "place_id": row.get("place_id", ""),
+        "place_id": _clean_sheet_val(row.get("place_id", "")),
         "status": status,
         "status_display": raw_status,
         "score": _safe_int(row.get("Score")),
-        "name": row.get("Nome do Restaurante", ""),
-        "category": row.get("Categoria", ""),
-        "neighborhood": row.get("Bairro", ""),
-        "city": row.get("Cidade", ""),
-        "phone": row.get("Telefone", ""),
-        "instagram_username": str(row.get("Instagram", "")).lstrip("@"),
-        "link_type_label": row.get("Tipo de link atual", ""),
+        "name": _clean_sheet_val(row.get("Nome do Restaurante", "")),
+        "category": _clean_sheet_val(row.get("Categoria", "")),
+        "neighborhood": _clean_sheet_val(row.get("Bairro", "")),
+        "city": _clean_sheet_val(row.get("Cidade", "")),
+        "phone": phone_raw,
+        "instagram_username": ig_raw,
+        "link_type_label": _clean_sheet_val(row.get("Tipo de link atual", "")),
         "followers_count": _safe_int(row.get("Seguidores Instagram")),
         "engagement_rate": _safe_float(row.get("Taxa de Engajamento (%)")),
         "google_reviews": _safe_int(row.get("Avaliações Google")),
         "google_rating": _safe_float(row.get("Rating Google")),
         "last_post_days": _safe_int(row.get("Último post (dias atrás)")),
         "key_strengths": strengths,
-        "whatsapp_message": row.get("Mensagem WhatsApp", ""),
+        "whatsapp_message": _clean_sheet_val(row.get("Mensagem WhatsApp", "")),
         "whatsapp_followup": "",
-        "instagram_dm": row.get("Mensagem Instagram DM", ""),
-        "collected_at": row.get("Data de coleta", ""),
+        "instagram_dm": _clean_sheet_val(row.get("Mensagem Instagram DM", "")),
+        "collected_at": _clean_sheet_val(row.get("Data de coleta", "")),
         "maps_url": "",
         "website": "",
         "is_new": None,
@@ -144,7 +168,13 @@ def _read_leads_from_sheets() -> list:
     if not sheets:
         return []
     ws = sheets[-1]
-    rows = ws.get_all_records()
+    # FORMATTED_VALUE returns the displayed text of formulas (e.g. phone number)
+    # instead of the raw formula string or #ERROR!
+    try:
+        rows = ws.get_all_records(value_render_option="FORMATTED_VALUE")
+    except TypeError:
+        # Older gspread versions don't support value_render_option
+        rows = ws.get_all_records()
     return [_sheets_row_to_lead(r) for r in rows if str(r.get("🌡️ Status", "")).strip()]
 
 
