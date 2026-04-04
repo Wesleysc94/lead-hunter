@@ -197,6 +197,7 @@ def _build_lead_record(
         "last_post_days": ig_data.get("days_since_last_post"),
         "key_strengths": score_data.get("key_strengths", []),
         "whatsapp_message": messages.get("whatsapp_message", ""),
+        "whatsapp_followup": messages.get("whatsapp_followup", ""),
         "instagram_dm": messages.get("instagram_dm", ""),
         "subject_email": messages.get("subject_email", ""),
         "approach_angle": messages.get("approach_angle", ""),

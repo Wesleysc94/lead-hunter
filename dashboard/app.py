@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, send_file, stream_with_context
@@ -18,7 +19,17 @@ LOGS_DIR = BASE_DIR / "logs"
 EXPORTS_DIR = BASE_DIR / "exports"
 CHECKPOINT_PATH = DATA_DIR / "checkpoint.json"
 LEADS_PATH = DATA_DIR / "latest_qualified_leads.json"
+CRM_PATH = DATA_DIR / "crm.json"
 LOG_PATH = LOGS_DIR / "lead_hunter.log"
+
+CRM_STATUSES = {
+    "novo":        "Não Abordado",
+    "enviado":     "Mensagem Enviada",
+    "respondeu":   "Respondeu",
+    "negociando":  "Negociando",
+    "fechado":     "Fechado ✓",
+    "descartado":  "Descartado",
+}
 
 EXPORT_WHITELIST = {"qualified_leads.csv", "qualified_leads.json", "qualified_leads.html"}
 
@@ -38,6 +49,33 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 
 _run_process: subprocess.Popen | None = None
 _run_lock = threading.Lock()
+
+
+# ── CRM helpers ───────────────────────────────────────────────────────────────
+
+def _load_crm() -> dict:
+    """Load CRM data from disk. Returns {place_id: crm_entry}."""
+    if IS_VERCEL:
+        return {}
+    try:
+        return json.loads(CRM_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_crm(crm: dict) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    CRM_PATH.write_text(json.dumps(crm, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _crm_entry_for(place_id: str, crm: dict) -> dict:
+    return crm.get(place_id, {
+        "status": "novo",
+        "note": "",
+        "history": [],
+        "contacted_at": None,
+        "updated_at": None,
+    })
 
 
 # ── Data helpers ───────────────────────────────────────────────────────────────
@@ -177,8 +215,10 @@ def api_stats():
 @app.route("/api/leads")
 def api_leads():
     leads = _read_leads()
+    crm = _load_crm()
     status_filter = request.args.get("status", "").upper()
     query = request.args.get("q", "").lower()
+    crm_filter = request.args.get("crm", "").lower()
 
     result = []
     for lead in leads:
@@ -194,9 +234,67 @@ def api_leads():
             ])).lower()
             if query not in searchable:
                 continue
-        result.append(_strip_lead(lead))
+        stripped = _strip_lead(lead)
+        # Merge CRM state into every lead
+        pid = lead.get("place_id", "")
+        crm_entry = _crm_entry_for(pid, crm)
+        stripped["crm_status"] = crm_entry.get("status", "novo")
+        stripped["crm_note"]   = crm_entry.get("note", "")
+        stripped["crm_history"] = crm_entry.get("history", [])
+        stripped["contacted_at"] = crm_entry.get("contacted_at")
+        if crm_filter and stripped["crm_status"] != crm_filter:
+            continue
+        result.append(stripped)
 
     return jsonify(result)
+
+
+@app.route("/api/crm/<place_id>", methods=["PATCH"])
+def api_crm_update(place_id: str):
+    if IS_VERCEL:
+        return jsonify({"error": "CRM disponível apenas no dashboard local."}), 503
+    body = request.get_json(silent=True) or {}
+    new_status = body.get("status", "").lower()
+    new_note   = body.get("note")
+    if new_status and new_status not in CRM_STATUSES:
+        return jsonify({"error": f"Status inválido. Opções: {list(CRM_STATUSES.keys())}"}), 400
+
+    crm = _load_crm()
+    entry = _crm_entry_for(place_id, crm)
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+
+    if new_status and new_status != entry.get("status"):
+        old_status = entry.get("status", "novo")
+        entry["history"].append({
+            "at": now,
+            "from": old_status,
+            "to": new_status,
+            "note": new_note or "",
+        })
+        entry["status"] = new_status
+        if new_status == "enviado" and not entry.get("contacted_at"):
+            entry["contacted_at"] = now
+
+    if new_note is not None:
+        entry["note"] = new_note
+
+    entry["updated_at"] = now
+    crm[place_id] = entry
+    _save_crm(crm)
+    return jsonify({"ok": True, "entry": entry})
+
+
+@app.route("/api/crm/stats")
+def api_crm_stats():
+    if IS_VERCEL:
+        return jsonify({s: 0 for s in CRM_STATUSES})
+    crm = _load_crm()
+    counts = {s: 0 for s in CRM_STATUSES}
+    for entry in crm.values():
+        s = entry.get("status", "novo")
+        if s in counts:
+            counts[s] += 1
+    return jsonify(counts)
 
 
 @app.route("/api/stream-logs")

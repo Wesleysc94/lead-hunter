@@ -71,7 +71,43 @@
       </div>
     </section>
 
-    <!-- ── 2. CONTROLES ── -->
+    <!-- ── 2. FUNIL CRM ── -->
+    <section class="section" id="crm-funnel-section">
+      <h2 class="section-title">Funil de Abordagem</h2>
+      <div class="crm-funnel" id="crm-funnel">
+        <div class="funnel-stage" data-crm="novo">
+          <div class="funnel-label">Não Abordado</div>
+          <div class="funnel-count" id="crm-count-novo">—</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-stage" data-crm="enviado">
+          <div class="funnel-label">Msg Enviada</div>
+          <div class="funnel-count" id="crm-count-enviado">—</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-stage" data-crm="respondeu">
+          <div class="funnel-label">Respondeu</div>
+          <div class="funnel-count" id="crm-count-respondeu">—</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-stage" data-crm="negociando">
+          <div class="funnel-label">Negociando</div>
+          <div class="funnel-count" id="crm-count-negociando">—</div>
+        </div>
+        <div class="funnel-arrow">›</div>
+        <div class="funnel-stage funnel-stage--closed" data-crm="fechado">
+          <div class="funnel-label">Fechado ✓</div>
+          <div class="funnel-count" id="crm-count-fechado">—</div>
+        </div>
+        <div class="funnel-arrow funnel-arrow--muted">·</div>
+        <div class="funnel-stage funnel-stage--discarded" data-crm="descartado">
+          <div class="funnel-label">Descartado</div>
+          <div class="funnel-count" id="crm-count-descartado">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. CONTROLES ── -->
     <section class="section">
       <h2 class="section-title">Controles do Pipeline</h2>
 
@@ -127,7 +163,7 @@
       </div>
     </section>
 
-    <!-- ── 3. LOG ── -->
+    <!-- ── 4. LOG ── -->
     <section class="section">
       <div class="section-header-row">
         <h2 class="section-title">Log em Tempo Real</h2>
@@ -156,16 +192,27 @@
       </div>
     </section>
 
-    <!-- ── 4. LEADS ── -->
+    <!-- ── 5. LEADS ── -->
     <section class="section">
       <div class="section-header-row">
         <h2 class="section-title">Leads Qualificados</h2>
         <div class="leads-header-actions">
+          <!-- Score filter -->
           <div class="filter-pills" id="filter-pills">
             <button class="filter-pill active" data-filter="ALL">Todos</button>
             <button class="filter-pill filter-pill--hot" data-filter="HOT">HOT 🔥</button>
             <button class="filter-pill filter-pill--warm" data-filter="WARM">WARM ✓</button>
-            <button class="filter-pill filter-pill--new" id="btn-only-new" data-only-new="false">✦ Apenas novos</button>
+            <button class="filter-pill filter-pill--new" id="btn-only-new" data-only-new="false">✦ Novos</button>
+          </div>
+          <!-- CRM filter -->
+          <div class="filter-pills" id="crm-filter-pills">
+            <button class="filter-pill active" data-crm-filter="ALL">Todos CRM</button>
+            <button class="filter-pill crm-pill--novo"       data-crm-filter="novo">Não Abordado</button>
+            <button class="filter-pill crm-pill--enviado"    data-crm-filter="enviado">Enviado</button>
+            <button class="filter-pill crm-pill--respondeu"  data-crm-filter="respondeu">Respondeu</button>
+            <button class="filter-pill crm-pill--negociando" data-crm-filter="negociando">Negociando</button>
+            <button class="filter-pill crm-pill--fechado"    data-crm-filter="fechado">Fechado</button>
+            <button class="filter-pill crm-pill--descartado" data-crm-filter="descartado">Descartado</button>
           </div>
           <div class="search-wrap">
             <span class="search-icon">⌕</span>
@@ -179,15 +226,15 @@
         <table class="leads-table" id="leads-table">
           <thead>
             <tr>
-              <th>Status</th>
               <th>Score</th>
               <th>Restaurante</th>
               <th>Bairro</th>
-              <th>Link Atual</th>
-              <th>Seguidores</th>
+              <th>Contato</th>
+              <th>Link</th>
+              <th>Instagram</th>
               <th>Google</th>
-              <th>Pontos Fortes</th>
-              <th>Ações</th>
+              <th>CRM</th>
+              <th>Mensagens</th>
             </tr>
           </thead>
           <tbody id="leads-tbody">
@@ -237,7 +284,7 @@
       <div class="sel-header">
         <span class="sel-title">Categorias</span>
         <div class="sel-quick">
-          <button class="sel-quick-btn" id="cats-burgers" title="Selecionas hamburguerias e smash">Burgers</button>
+          <button class="sel-quick-btn" id="cats-burgers" title="Hamburguerias e smash">Burgers</button>
           <button class="sel-quick-btn" id="cats-all">Todas</button>
           <button class="sel-quick-btn" id="cats-none">Limpar</button>
         </div>
@@ -247,6 +294,38 @@
       <div class="sel-footer">
         <span class="sel-count" id="categories-count">—</span>
         <button class="btn btn-primary btn-sm" id="categories-confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CRM PANEL (inline per lead) ═══ -->
+  <div class="sel-overlay hidden" id="modal-crm" role="dialog" aria-modal="true" aria-label="Atualizar CRM">
+    <div class="sel-sheet crm-sheet">
+      <div class="sel-header">
+        <span class="sel-title" id="crm-modal-name">Lead</span>
+        <button class="sel-close" id="modal-crm-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="sel-body">
+        <div class="crm-status-grid" id="crm-status-grid">
+          <button class="crm-status-btn" data-status="novo">Não Abordado</button>
+          <button class="crm-status-btn" data-status="enviado">Msg Enviada</button>
+          <button class="crm-status-btn" data-status="respondeu">Respondeu</button>
+          <button class="crm-status-btn" data-status="negociando">Negociando</button>
+          <button class="crm-status-btn crm-status-btn--closed" data-status="fechado">Fechado ✓</button>
+          <button class="crm-status-btn crm-status-btn--discard" data-status="descartado">Descartado</button>
+        </div>
+        <div class="crm-note-wrap">
+          <label class="control-label" for="crm-note-input">Anotação</label>
+          <textarea id="crm-note-input" class="crm-note-input" placeholder="Ex: Falei com Marcos, responsável pelo marketing. Pediu para retornar na segunda." rows="3"></textarea>
+        </div>
+        <div class="crm-history" id="crm-history">
+          <div class="crm-history-title">Histórico</div>
+          <div id="crm-history-list"><span class="log-empty">Sem histórico ainda.</span></div>
+        </div>
+      </div>
+      <div class="sel-footer">
+        <span class="crm-current-label" id="crm-current-status-label">—</span>
+        <button class="btn btn-primary btn-sm" id="crm-save-btn">Salvar</button>
       </div>
     </div>
   </div>

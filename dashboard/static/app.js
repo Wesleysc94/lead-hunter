@@ -8,6 +8,7 @@
 const state = {
   leads: [],
   filter: 'ALL',
+  crmFilter: 'ALL',
   search: '',
   onlyNew: false,
   logFilter: 'ALL',
@@ -15,10 +16,22 @@ const state = {
   isRunning: false,
   sseSource: null,
   statsInterval: null,
-  selectedCities: [],      // [] = all cities
-  selectedCategories: [],  // [] = all categories
+  selectedCities: [],
+  selectedCategories: [],
   allCities: [],
   allCategories: [],
+  // CRM modal
+  crmModalPlaceId: null,
+  crmModalStatus: 'novo',
+};
+
+const CRM_LABELS = {
+  novo:       'Não Abordado',
+  enviado:    'Msg Enviada',
+  respondeu:  'Respondeu',
+  negociando: 'Negociando',
+  fechado:    'Fechado ✓',
+  descartado: 'Descartado',
 };
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -49,7 +62,11 @@ function fmtPct(val) {
 // ── Stats Polling ──────────────────────────────────────────────────────────────
 function startStatsPolling() {
   fetchStats();
-  state.statsInterval = setInterval(fetchStats, 3000);
+  fetchCrmStats();
+  state.statsInterval = setInterval(() => {
+    fetchStats();
+    fetchCrmStats();
+  }, 5000);
 }
 
 async function fetchStats() {
@@ -87,6 +104,18 @@ function updateStatCards(data) {
 
   const ts = document.getElementById('last-updated');
   if (ts) ts.textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
+async function fetchCrmStats() {
+  try {
+    const res = await fetch('/api/crm/stats');
+    if (!res.ok) return;
+    const data = await res.json();
+    Object.entries(data).forEach(([status, count]) => {
+      const el = document.getElementById('crm-count-' + status);
+      if (el) el.textContent = count;
+    });
+  } catch (_) { /* silent */ }
 }
 
 function syncRunStatus(running) {
@@ -328,9 +357,9 @@ async function fetchLeads() {
 function getFilteredLeads() {
   const q = state.search.toLowerCase().trim();
   return state.leads.filter(lead => {
-    const matchStatus = state.filter === 'ALL' || lead.status === state.filter;
-    if (!matchStatus) return false;
+    if (state.filter !== 'ALL' && lead.status !== state.filter) return false;
     if (state.onlyNew && lead.is_new === false) return false;
+    if (state.crmFilter !== 'ALL' && (lead.crm_status || 'novo') !== state.crmFilter) return false;
     if (!q) return true;
     return [lead.name, lead.neighborhood, lead.city, lead.category, lead.instagram_username]
       .some(v => v && v.toLowerCase().includes(q));
@@ -375,19 +404,17 @@ function renderLeadsTable() {
   }
 
   tbody.innerHTML = leads.map(lead => {
-    const strengths = (lead.key_strengths || [])
-      .map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    const crm = lead.crm_status || 'novo';
+    const crmLabel = CRM_LABELS[crm] || crm;
+    const crmNote = lead.crm_note ? `<div class="crm-note-preview">${escapeHtml(lead.crm_note.slice(0, 60))}${lead.crm_note.length > 60 ? '…' : ''}</div>` : '';
+    const contactedAt = lead.contacted_at ? `<div class="crm-date">Enviado ${escapeHtml(lead.contacted_at)}</div>` : '';
 
     const phone = lead.phone
-      ? `<a href="https://wa.me/55${lead.phone.replace(/\D/g,'')}" target="_blank" class="btn-copy" title="Abrir WhatsApp">
-           📱 ${escapeHtml(lead.phone)}
-         </a>`
+      ? `<a href="https://wa.me/55${lead.phone.replace(/\D/g,'')}" target="_blank" class="btn-copy" title="Abrir WhatsApp">📱 ${escapeHtml(lead.phone)}</a>`
       : '';
 
     const igLink = lead.instagram_username
-      ? `<a href="https://instagram.com/${escapeAttr(lead.instagram_username)}" target="_blank" class="btn-copy" title="Ver Instagram">
-           @${escapeHtml(lead.instagram_username)}
-         </a>`
+      ? `<a href="https://instagram.com/${escapeAttr(lead.instagram_username)}" target="_blank" class="btn-copy" title="Ver Instagram">@${escapeHtml(lead.instagram_username)}</a>`
       : '';
 
     const mapsLink = lead.maps_url
@@ -395,43 +422,50 @@ function renderLeadsTable() {
       : '';
 
     const copyWA = lead.whatsapp_message
-      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.whatsapp_message)}" title="Copiar 1ª mensagem WhatsApp">
-           <span>📋</span> 1º Contato
-         </button>`
+      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.whatsapp_message)}" title="Copiar 1ª mensagem WhatsApp"><span>📋</span> 1º Contato</button>`
       : '';
 
     const copyFU = lead.whatsapp_followup
-      ? `<button class="btn-copy btn-copy-fu" data-msg="${escapeAttr(lead.whatsapp_followup)}" title="Copiar follow-up (enviar se não responder em 3 dias)">
-           <span>🔁</span> Follow-up
-         </button>`
+      ? `<button class="btn-copy btn-copy-fu" data-msg="${escapeAttr(lead.whatsapp_followup)}" title="Copiar follow-up (3 dias depois)"><span>🔁</span> Follow-up</button>`
       : '';
 
     const copyIG = lead.instagram_dm
-      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.instagram_dm)}" title="Copiar mensagem Instagram DM">
-           <span>📋</span> Instagram
-         </button>`
+      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.instagram_dm)}" title="Copiar Instagram DM"><span>📋</span> Instagram</button>`
       : '';
 
     return `
-      <tr>
-        <td class="col-status" data-label="Status">${buildStatusBadge(lead.status, lead)}</td>
-        <td class="col-score" data-label="Score"><span class="score-num ${scoreClass(lead.score)}">${lead.score}</span></td>
+      <tr data-place-id="${escapeAttr(lead.place_id || '')}" class="crm-row crm-row--${crm}">
+        <td class="col-score" data-label="Score">
+          ${buildStatusBadge(lead.status, lead)}
+          <span class="score-num ${scoreClass(lead.score)}">${lead.score}</span>
+        </td>
         <td class="col-name" data-label="Restaurante">
           <div class="restaurant-name">${escapeHtml(lead.name)}</div>
           <div class="restaurant-cat">${escapeHtml(lead.category || '')}</div>
-          <div class="restaurant-contact">${phone}${igLink}</div>
         </td>
         <td class="col-bairro" data-label="Bairro">${escapeHtml(lead.neighborhood || lead.city || '—')}</td>
+        <td class="col-contato" data-label="Contato">
+          <div class="restaurant-contact">${phone}${igLink}${mapsLink}</div>
+        </td>
         <td class="col-link" data-label="Link"><span class="link-tag">${escapeHtml(lead.link_type_label || '—')}</span></td>
-        <td class="col-followers" data-label="Seguidores">${fmtNumber(lead.followers_count)}<br><small class="text-dim">${fmtPct(lead.engagement_rate)} eng.</small></td>
-        <td class="col-google" data-label="Google">${fmtNumber(lead.google_reviews)}<br><small class="text-dim">${lead.google_rating ? lead.google_rating + '★' : ''}</small></td>
-        <td class="col-strengths" data-label="Pontos Fortes"><ul class="strengths-list">${strengths}</ul></td>
-        <td class="col-actions">
+        <td class="col-instagram" data-label="Instagram">${fmtNumber(lead.followers_count)}<br><small class="text-dim">${fmtPct(lead.engagement_rate)} eng.</small></td>
+        <td class="col-google" data-label="Google">${fmtNumber(lead.google_reviews)} <small class="text-dim">${lead.google_rating ? lead.google_rating + '★' : ''}</small></td>
+        <td class="col-crm" data-label="CRM">
+          <button class="crm-badge crm-badge--${crm} btn-open-crm"
+                  data-place-id="${escapeAttr(lead.place_id || '')}"
+                  data-name="${escapeAttr(lead.name || '')}"
+                  data-crm="${crm}"
+                  title="Atualizar status de abordagem">
+            ${escapeHtml(crmLabel)}
+          </button>
+          ${crmNote}
+          ${contactedAt}
+        </td>
+        <td class="col-actions" data-label="Mensagens">
           <div class="action-group">
             ${copyWA}
             ${copyFU}
             ${copyIG}
-            ${mapsLink}
           </div>
         </td>
       </tr>`;
@@ -439,13 +473,37 @@ function renderLeadsTable() {
 }
 
 function wireLeadsControls() {
-  // Filter pills
-  document.querySelectorAll('.filter-pill').forEach(btn => {
+  // Score filter pills
+  document.querySelectorAll('#filter-pills .filter-pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#filter-pills .filter-pill').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      state.filter = btn.dataset.filter;
+      state.filter = btn.dataset.filter || 'ALL';
       renderLeadsTable();
+    });
+  });
+
+  // CRM filter pills
+  document.querySelectorAll('#crm-filter-pills .filter-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#crm-filter-pills .filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.crmFilter = btn.dataset.crmFilter || 'ALL';
+      renderLeadsTable();
+    });
+  });
+
+  // Also allow clicking funnel stages
+  document.querySelectorAll('.funnel-stage[data-crm]').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => {
+      const crm = el.dataset.crm;
+      state.crmFilter = crm;
+      document.querySelectorAll('#crm-filter-pills .filter-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.crmFilter === crm);
+      });
+      renderLeadsTable();
+      document.getElementById('leads-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
@@ -471,30 +529,130 @@ function wireLeadsControls() {
 
   // Copy to clipboard — event delegation on tbody
   document.getElementById('leads-tbody').addEventListener('click', async e => {
-    const btn = e.target.closest('.btn-copy[data-msg]');
-    if (!btn) return;
-    const msg = btn.dataset.msg;
-    try {
-      await navigator.clipboard.writeText(msg);
-    } catch (_) {
-      // Fallback for non-HTTPS
-      const ta = document.createElement('textarea');
-      ta.value = msg;
-      ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
+    const copyBtn = e.target.closest('.btn-copy[data-msg]');
+    if (copyBtn) {
+      const msg = copyBtn.dataset.msg;
+      try {
+        await navigator.clipboard.writeText(msg);
+      } catch (_) {
+        const ta = document.createElement('textarea');
+        ta.value = msg;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const originalHTML = copyBtn.innerHTML;
+      copyBtn.classList.add('copied');
+      copyBtn.innerHTML = '<span>✓</span> Copiado!';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.innerHTML = originalHTML;
+      }, 2000);
+      return;
     }
-    // Visual feedback
-    const originalHTML = btn.innerHTML;
-    btn.classList.add('copied');
-    btn.innerHTML = '<span>✓</span> Copiado!';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = originalHTML;
-    }, 2000);
+
+    // Open CRM modal
+    const crmBtn = e.target.closest('.btn-open-crm');
+    if (crmBtn) {
+      openCrmModal(
+        crmBtn.dataset.placeId,
+        crmBtn.dataset.name,
+        crmBtn.dataset.crm,
+      );
+    }
   });
+}
+
+// ── CRM Modal ─────────────────────────────────────────────────────────────────
+function openCrmModal(placeId, name, currentStatus) {
+  state.crmModalPlaceId = placeId;
+  state.crmModalStatus = currentStatus || 'novo';
+
+  const lead = state.leads.find(l => l.place_id === placeId);
+  const history = lead ? (lead.crm_history || []) : [];
+  const note = lead ? (lead.crm_note || '') : '';
+
+  document.getElementById('crm-modal-name').textContent = name || 'Lead';
+  document.getElementById('crm-note-input').value = note;
+
+  // Set active status button
+  document.querySelectorAll('.crm-status-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.status === state.crmModalStatus);
+  });
+  document.querySelectorAll('.crm-status-btn').forEach(btn => {
+    btn.onclick = () => {
+      state.crmModalStatus = btn.dataset.status;
+      document.querySelectorAll('.crm-status-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateCrmCurrentLabel();
+    };
+  });
+
+  updateCrmCurrentLabel();
+  renderCrmHistory(history);
+  document.getElementById('modal-crm').classList.remove('hidden');
+}
+
+function updateCrmCurrentLabel() {
+  const el = document.getElementById('crm-current-status-label');
+  if (el) el.textContent = 'Status: ' + (CRM_LABELS[state.crmModalStatus] || state.crmModalStatus);
+}
+
+function renderCrmHistory(history) {
+  const el = document.getElementById('crm-history-list');
+  if (!el) return;
+  if (!history || !history.length) {
+    el.innerHTML = '<span class="log-empty">Sem histórico ainda.</span>';
+    return;
+  }
+  el.innerHTML = history.slice().reverse().map(h => `
+    <div class="crm-history-item">
+      <span class="crm-history-date">${escapeHtml(h.at || '')}</span>
+      <span class="crm-history-arrow">${escapeHtml(CRM_LABELS[h.from] || h.from)} → <strong>${escapeHtml(CRM_LABELS[h.to] || h.to)}</strong></span>
+      ${h.note ? `<span class="crm-history-note">${escapeHtml(h.note)}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+async function saveCrmModal() {
+  const placeId = state.crmModalPlaceId;
+  if (!placeId) return;
+  const note = document.getElementById('crm-note-input').value;
+  try {
+    const res = await fetch(`/api/crm/${encodeURIComponent(placeId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: state.crmModalStatus, note }),
+    });
+    if (!res.ok) { alert('Erro ao salvar CRM'); return; }
+    // Update in-memory lead
+    const lead = state.leads.find(l => l.place_id === placeId);
+    if (lead) {
+      const data = await res.json();
+      lead.crm_status = data.entry.status;
+      lead.crm_note   = data.entry.note;
+      lead.crm_history = data.entry.history;
+      lead.contacted_at = data.entry.contacted_at;
+    }
+    document.getElementById('modal-crm').classList.add('hidden');
+    renderLeadsTable();
+    fetchCrmStats();
+  } catch (err) {
+    alert('Erro de conexão: ' + err.message);
+  }
+}
+
+function wireCrmModal() {
+  document.getElementById('modal-crm-close').addEventListener('click', () => {
+    document.getElementById('modal-crm').classList.add('hidden');
+  });
+  document.getElementById('modal-crm').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-crm'))
+      document.getElementById('modal-crm').classList.add('hidden');
+  });
+  document.getElementById('crm-save-btn').addEventListener('click', saveCrmModal);
 }
 
 // ── City / Category Selectors ─────────────────────────────────────────────────
@@ -784,6 +942,7 @@ function init() {
   wireLogControls();
   wireLeadsControls();
   wireSelectorModals();
+  wireCrmModal();
 
   fetchLeads();
   startStatsPolling();
