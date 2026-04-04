@@ -110,6 +110,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-email", action="store_true")
     parser.add_argument("--limit-cities", type=int, default=0)
     parser.add_argument("--limit-categories", type=int, default=0)
+    parser.add_argument("--cities", type=str, default="",
+                        help="Cidades separadas por | (pipe). Vazio = todas.")
+    parser.add_argument("--categories", type=str, default="",
+                        help="Categorias separadas por | (pipe). Vazio = todas.")
     return parser.parse_args()
 
 
@@ -243,13 +247,26 @@ def main() -> int:
     apify_calls_used = int(state.get("apify_calls_used", 0))
     processed_since_checkpoint = 0
 
-    cities = config.TARGET_CITIES[: args.limit_cities or None]
-    categories = config.TARGET_CATEGORIES[: args.limit_categories or None]
+    if args.cities:
+        cities = [c.strip() for c in args.cities.split("|") if c.strip()]
+    else:
+        cities = config.TARGET_CITIES[: args.limit_cities or None]
+
+    if args.categories:
+        categories = [c.strip() for c in args.categories.split("|") if c.strip()]
+    else:
+        categories = config.TARGET_CATEGORIES[: args.limit_categories or None]
+
+    total_combos = max(len(cities) * len(categories), 1)
+    combo_done = 0
 
     logger.info("Iniciando pipeline com %s cidades x %s categorias", len(cities), len(categories))
 
     for city in cities:
         for category in categories:
+            combo_done += 1
+            pct = int(combo_done / total_combos * 100)
+            logger.info("[PROGRESS] %d/%d (%d%%) — %s × %s", combo_done, total_combos, pct, city, category)
             try:
                 places = get_places(city, category, seen_place_ids=processed_place_ids)
                 state["stats"]["found"] += len(places)

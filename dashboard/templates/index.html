@@ -79,14 +79,21 @@
         <div class="control-group">
           <label class="control-label" for="cfg-apify">Máx. chamadas Apify</label>
           <input class="control-input" id="cfg-apify" type="number" value="50" min="0" max="500">
+          <span class="control-hint">0 = pular Instagram (100% grátis)</span>
         </div>
         <div class="control-group">
-          <label class="control-label" for="cfg-cities">Cidades (0 = todas as 17)</label>
-          <input class="control-input" id="cfg-cities" type="number" value="0" min="0" max="17">
+          <label class="control-label">Cidades de Busca</label>
+          <button class="selector-trigger" id="btn-select-cities" type="button">
+            <span id="cities-summary">Carregando…</span>
+            <span class="selector-caret">▾</span>
+          </button>
         </div>
         <div class="control-group">
-          <label class="control-label" for="cfg-categories">Categorias (0 = todas as 14)</label>
-          <input class="control-input" id="cfg-categories" type="number" value="0" min="0" max="14">
+          <label class="control-label">Categorias</label>
+          <button class="selector-trigger" id="btn-select-categories" type="button">
+            <span id="categories-summary">Carregando…</span>
+            <span class="selector-caret">▾</span>
+          </button>
         </div>
         <div class="control-group control-group--checkboxes">
           <label class="control-check">
@@ -111,9 +118,12 @@
 
       <div id="run-progress" class="run-progress hidden">
         <div class="progress-bar-track">
-          <div class="progress-bar-fill progress-bar-anim" id="progress-bar-fill"></div>
+          <div class="progress-bar-fill indeterminate" id="progress-bar-fill"></div>
         </div>
-        <div class="progress-label" id="progress-label">Iniciando pipeline...</div>
+        <div class="progress-meta">
+          <span class="progress-label" id="progress-label">Iniciando pipeline...</span>
+          <span class="progress-pct" id="progress-pct"></span>
+        </div>
       </div>
     </section>
 
@@ -200,6 +210,46 @@
     </section>
 
   </main>
+
+  <!-- ═══ CITIES SELECTOR MODAL ═══ -->
+  <div class="sel-overlay hidden" id="modal-cities" role="dialog" aria-modal="true" aria-label="Selecionar cidades">
+    <div class="sel-sheet">
+      <div class="sel-header">
+        <span class="sel-title">Cidades de Busca</span>
+        <div class="sel-quick">
+          <button class="sel-quick-btn" id="cities-sp" title="Selecionar todos os bairros de São Paulo">Solo SP</button>
+          <button class="sel-quick-btn" id="cities-all">Todas</button>
+          <button class="sel-quick-btn" id="cities-none">Limpar</button>
+        </div>
+        <button class="sel-close" id="modal-cities-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="sel-body" id="cities-list"></div>
+      <div class="sel-footer">
+        <span class="sel-count" id="cities-count">—</span>
+        <button class="btn btn-primary btn-sm" id="cities-confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CATEGORIES SELECTOR MODAL ═══ -->
+  <div class="sel-overlay hidden" id="modal-categories" role="dialog" aria-modal="true" aria-label="Selecionar categorias">
+    <div class="sel-sheet">
+      <div class="sel-header">
+        <span class="sel-title">Categorias</span>
+        <div class="sel-quick">
+          <button class="sel-quick-btn" id="cats-burgers" title="Selecionas hamburguerias e smash">Burgers</button>
+          <button class="sel-quick-btn" id="cats-all">Todas</button>
+          <button class="sel-quick-btn" id="cats-none">Limpar</button>
+        </div>
+        <button class="sel-close" id="modal-categories-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="sel-body" id="categories-list"></div>
+      <div class="sel-footer">
+        <span class="sel-count" id="categories-count">—</span>
+        <button class="btn btn-primary btn-sm" id="categories-confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

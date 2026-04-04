@@ -15,6 +15,10 @@ const state = {
   isRunning: false,
   sseSource: null,
   statsInterval: null,
+  selectedCities: [],      // [] = all cities
+  selectedCategories: [],  // [] = all categories
+  allCities: [],
+  allCategories: [],
 };
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -102,23 +106,57 @@ function setRunningUI(running) {
   const btnStop  = document.getElementById('btn-stop');
   const progress = document.getElementById('run-progress');
   const badge    = document.getElementById('run-status-badge');
+  const bar      = document.getElementById('progress-bar-fill');
+  const pctEl    = document.getElementById('progress-pct');
 
   if (btnStart) btnStart.disabled = running;
   if (btnStop)  btnStop.disabled  = !running;
-  if (progress) progress.classList.toggle('hidden', !running);
 
   if (badge) {
     badge.textContent = running ? 'RODANDO' : 'PARADO';
     badge.className = 'status-badge ' + (running ? 'status-running' : 'status-idle');
   }
+
+  if (running) {
+    if (progress) progress.classList.remove('hidden');
+    // Reset to indeterminate animation
+    if (bar) { bar.className = 'progress-bar-fill indeterminate'; bar.style.width = ''; }
+    if (pctEl) pctEl.textContent = '';
+  } else {
+    // Animate to 100% then hide
+    if (bar) {
+      bar.className = 'progress-bar-fill';
+      bar.style.width = '100%';
+    }
+    const label = document.getElementById('progress-label');
+    if (label) label.textContent = 'Concluído ✓';
+    if (pctEl) pctEl.textContent = '100%';
+    setTimeout(() => {
+      if (progress) progress.classList.add('hidden');
+      if (bar) { bar.className = 'progress-bar-fill indeterminate'; bar.style.width = ''; }
+      if (pctEl) pctEl.textContent = '';
+    }, 2500);
+  }
+}
+
+function updateRealProgress(done, total, pct) {
+  const bar   = document.getElementById('progress-bar-fill');
+  const label = document.getElementById('progress-label');
+  const pctEl = document.getElementById('progress-pct');
+  if (bar) {
+    bar.className = 'progress-bar-fill';
+    bar.style.width = pct + '%';
+  }
+  if (label) label.textContent = `Combinação ${done}/${total}`;
+  if (pctEl) pctEl.textContent = pct + '%';
 }
 
 function wireRunControls() {
   document.getElementById('btn-start').addEventListener('click', async () => {
     const body = {
-      max_apify_calls: parseInt(document.getElementById('cfg-apify').value) || 50,
-      limit_cities:    parseInt(document.getElementById('cfg-cities').value) || 0,
-      limit_categories: parseInt(document.getElementById('cfg-categories').value) || 0,
+      max_apify_calls:    parseInt(document.getElementById('cfg-apify').value) || 50,
+      selected_cities:    state.selectedCities.length ? state.selectedCities : null,
+      selected_categories: state.selectedCategories.length ? state.selectedCategories : null,
       skip_sheets: document.getElementById('cfg-skip-sheets').checked,
       skip_email:  document.getElementById('cfg-skip-email').checked,
     };
@@ -177,6 +215,13 @@ function connectSSE() {
   source.onmessage = (event) => {
     if (!event.data || event.data.startsWith(':')) return; // skip keepalive comments
     appendLogLine(event.data);
+
+    // Parse real progress from pipeline logs
+    if (event.data.includes('[PROGRESS]')) {
+      const m = event.data.match(/\[PROGRESS\]\s+(\d+)\/(\d+)\s+\((\d+)%\)/);
+      if (m) updateRealProgress(m[1], m[2], parseInt(m[3]));
+      return;
+    }
 
     // Update progress label with last processing line
     if (event.data.includes('Processando ') || event.data.includes('Resumo final')) {
@@ -350,34 +395,41 @@ function renderLeadsTable() {
       : '';
 
     const copyWA = lead.whatsapp_message
-      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.whatsapp_message)}" data-label="WA" title="Copiar mensagem WhatsApp">
-           <span>📋</span> Copiar WA
+      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.whatsapp_message)}" title="Copiar 1ª mensagem WhatsApp">
+           <span>📋</span> 1º Contato
+         </button>`
+      : '';
+
+    const copyFU = lead.whatsapp_followup
+      ? `<button class="btn-copy btn-copy-fu" data-msg="${escapeAttr(lead.whatsapp_followup)}" title="Copiar follow-up (enviar se não responder em 3 dias)">
+           <span>🔁</span> Follow-up
          </button>`
       : '';
 
     const copyIG = lead.instagram_dm
-      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.instagram_dm)}" data-label="IG" title="Copiar mensagem Instagram">
-           <span>📋</span> Copiar IG
+      ? `<button class="btn-copy" data-msg="${escapeAttr(lead.instagram_dm)}" title="Copiar mensagem Instagram DM">
+           <span>📋</span> Instagram
          </button>`
       : '';
 
     return `
       <tr>
-        <td>${buildStatusBadge(lead.status, lead)}</td>
-        <td><span class="score-num ${scoreClass(lead.score)}">${lead.score}</span></td>
-        <td>
+        <td class="col-status" data-label="Status">${buildStatusBadge(lead.status, lead)}</td>
+        <td class="col-score" data-label="Score"><span class="score-num ${scoreClass(lead.score)}">${lead.score}</span></td>
+        <td class="col-name" data-label="Restaurante">
           <div class="restaurant-name">${escapeHtml(lead.name)}</div>
           <div class="restaurant-cat">${escapeHtml(lead.category || '')}</div>
-          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${phone}${igLink}</div>
+          <div class="restaurant-contact">${phone}${igLink}</div>
         </td>
-        <td>${escapeHtml(lead.neighborhood || lead.city || '—')}</td>
-        <td><span class="link-tag">${escapeHtml(lead.link_type_label || '—')}</span></td>
-        <td>${fmtNumber(lead.followers_count)}<br><small class="text-dim">${fmtPct(lead.engagement_rate)} eng.</small></td>
-        <td>${fmtNumber(lead.google_reviews)}<br><small class="text-dim">${lead.google_rating ? lead.google_rating + '★' : ''}</small></td>
-        <td><ul class="strengths-list">${strengths}</ul></td>
-        <td>
+        <td class="col-bairro" data-label="Bairro">${escapeHtml(lead.neighborhood || lead.city || '—')}</td>
+        <td class="col-link" data-label="Link"><span class="link-tag">${escapeHtml(lead.link_type_label || '—')}</span></td>
+        <td class="col-followers" data-label="Seguidores">${fmtNumber(lead.followers_count)}<br><small class="text-dim">${fmtPct(lead.engagement_rate)} eng.</small></td>
+        <td class="col-google" data-label="Google">${fmtNumber(lead.google_reviews)}<br><small class="text-dim">${lead.google_rating ? lead.google_rating + '★' : ''}</small></td>
+        <td class="col-strengths" data-label="Pontos Fortes"><ul class="strengths-list">${strengths}</ul></td>
+        <td class="col-actions">
           <div class="action-group">
             ${copyWA}
+            ${copyFU}
             ${copyIG}
             ${mapsLink}
           </div>
@@ -442,6 +494,177 @@ function wireLeadsControls() {
       btn.classList.remove('copied');
       btn.innerHTML = originalHTML;
     }, 2000);
+  });
+}
+
+// ── City / Category Selectors ─────────────────────────────────────────────────
+const BURGER_CATS = ['hamburgueria artesanal', 'smash burger', 'burger artesanal'];
+
+async function loadTargets() {
+  try {
+    const res = await fetch('/api/config/targets');
+    if (!res.ok) return;
+    const data = await res.json();
+    state.allCities = data.cities || [];
+    state.allCategories = data.categories || [];
+    updateCitiesSummary();
+    updateCategoriesSummary();
+  } catch (_) { /* silent */ }
+}
+
+function renderCitiesModal() {
+  const list = document.getElementById('cities-list');
+  if (!list) return;
+  const cities = state.allCities;
+  const allSelected = state.selectedCities.length === 0;
+
+  // Group by city name (part after comma)
+  const groups = {};
+  const groupOrder = [];
+  cities.forEach(c => {
+    const comma = c.indexOf(',');
+    const key = comma > -1 ? c.slice(comma + 1).trim() : 'Outras';
+    if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+    groups[key].push(c);
+  });
+
+  // São Paulo first
+  const ordered = ['São Paulo', ...groupOrder.filter(k => k !== 'São Paulo')];
+
+  list.innerHTML = ordered.filter(g => groups[g]).map(group => `
+    <div class="sel-group">
+      <div class="sel-group-label">${escapeHtml(group)}</div>
+      ${groups[group].map(city => {
+        const label = city.indexOf(',') > -1 ? city.slice(0, city.indexOf(',')).trim() : city;
+        const checked = allSelected || state.selectedCities.includes(city);
+        return `<label class="sel-item">
+          <input type="checkbox" class="sel-check city-check" value="${escapeAttr(city)}"${checked ? ' checked' : ''}>
+          <span class="sel-item-label">${escapeHtml(label)}</span>
+        </label>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  updateCitiesCount();
+  list.querySelectorAll('.city-check').forEach(cb => cb.addEventListener('change', updateCitiesCount));
+}
+
+function renderCategoriesModal() {
+  const list = document.getElementById('categories-list');
+  if (!list) return;
+  const cats = state.allCategories;
+  const allSelected = state.selectedCategories.length === 0;
+
+  list.innerHTML = `<div class="sel-group"><div class="sel-group-label">Todas as categorias</div>${
+    cats.map(cat => {
+      const checked = allSelected || state.selectedCategories.includes(cat);
+      return `<label class="sel-item">
+        <input type="checkbox" class="sel-check cat-check" value="${escapeAttr(cat)}"${checked ? ' checked' : ''}>
+        <span class="sel-item-label">${escapeHtml(cat)}</span>
+      </label>`;
+    }).join('')
+  }</div>`;
+
+  updateCategoriesCount();
+  list.querySelectorAll('.cat-check').forEach(cb => cb.addEventListener('change', updateCategoriesCount));
+}
+
+function updateCitiesCount() {
+  const count = document.querySelectorAll('.city-check:checked').length;
+  const el = document.getElementById('cities-count');
+  if (el) el.textContent = count + ' selecionadas';
+}
+
+function updateCategoriesCount() {
+  const count = document.querySelectorAll('.cat-check:checked').length;
+  const el = document.getElementById('categories-count');
+  if (el) el.textContent = count + ' selecionadas';
+}
+
+function updateCitiesSummary() {
+  const el = document.getElementById('cities-summary');
+  if (!el) return;
+  if (state.selectedCities.length === 0) {
+    el.textContent = `Todas (${state.allCities.length || '…'})`;
+  } else {
+    const spCount = state.selectedCities.filter(c => c.includes('São Paulo')).length;
+    if (spCount === state.selectedCities.length) {
+      el.textContent = `São Paulo (${spCount})`;
+    } else {
+      el.textContent = `${state.selectedCities.length} cidade${state.selectedCities.length > 1 ? 's' : ''}`;
+    }
+  }
+}
+
+function updateCategoriesSummary() {
+  const el = document.getElementById('categories-summary');
+  if (!el) return;
+  if (state.selectedCategories.length === 0) {
+    el.textContent = `Todas (${state.allCategories.length || '…'})`;
+  } else {
+    el.textContent = `${state.selectedCategories.length} categoria${state.selectedCategories.length > 1 ? 's' : ''}`;
+  }
+}
+
+function setChecks(selector, predicate) {
+  document.querySelectorAll(selector).forEach(cb => { cb.checked = predicate(cb.value); });
+}
+
+function wireSelectorModals() {
+  // ── Cities ──
+  const citiesOverlay = document.getElementById('modal-cities');
+  document.getElementById('btn-select-cities').addEventListener('click', () => {
+    renderCitiesModal();
+    citiesOverlay.classList.remove('hidden');
+  });
+  document.getElementById('modal-cities-close').addEventListener('click', () => citiesOverlay.classList.add('hidden'));
+  citiesOverlay.addEventListener('click', e => { if (e.target === citiesOverlay) citiesOverlay.classList.add('hidden'); });
+
+  document.getElementById('cities-sp').addEventListener('click', () => {
+    setChecks('.city-check', v => v.includes('São Paulo'));
+    updateCitiesCount();
+  });
+  document.getElementById('cities-all').addEventListener('click', () => {
+    setChecks('.city-check', () => true);
+    updateCitiesCount();
+  });
+  document.getElementById('cities-none').addEventListener('click', () => {
+    setChecks('.city-check', () => false);
+    updateCitiesCount();
+  });
+  document.getElementById('cities-confirm').addEventListener('click', () => {
+    const checked = [...document.querySelectorAll('.city-check:checked')].map(cb => cb.value);
+    state.selectedCities = checked.length === state.allCities.length ? [] : checked;
+    updateCitiesSummary();
+    citiesOverlay.classList.add('hidden');
+  });
+
+  // ── Categories ──
+  const catsOverlay = document.getElementById('modal-categories');
+  document.getElementById('btn-select-categories').addEventListener('click', () => {
+    renderCategoriesModal();
+    catsOverlay.classList.remove('hidden');
+  });
+  document.getElementById('modal-categories-close').addEventListener('click', () => catsOverlay.classList.add('hidden'));
+  catsOverlay.addEventListener('click', e => { if (e.target === catsOverlay) catsOverlay.classList.add('hidden'); });
+
+  document.getElementById('cats-burgers').addEventListener('click', () => {
+    setChecks('.cat-check', v => BURGER_CATS.includes(v));
+    updateCategoriesCount();
+  });
+  document.getElementById('cats-all').addEventListener('click', () => {
+    setChecks('.cat-check', () => true);
+    updateCategoriesCount();
+  });
+  document.getElementById('cats-none').addEventListener('click', () => {
+    setChecks('.cat-check', () => false);
+    updateCategoriesCount();
+  });
+  document.getElementById('categories-confirm').addEventListener('click', () => {
+    const checked = [...document.querySelectorAll('.cat-check:checked')].map(cb => cb.value);
+    state.selectedCategories = checked.length === state.allCategories.length ? [] : checked;
+    updateCategoriesSummary();
+    catsOverlay.classList.add('hidden');
   });
 }
 
@@ -560,10 +783,12 @@ function init() {
   wireRunControls();
   wireLogControls();
   wireLeadsControls();
+  wireSelectorModals();
 
   fetchLeads();
   startStatsPolling();
   connectSSE();
+  loadTargets();
 
   // Guided tour button
   const btnTour = document.getElementById('btn-tour');

@@ -25,6 +25,18 @@ except Exception:  # noqa: BLE001
     google_generativeai = None
 
 
+def _link_type_label_short(link_type: str) -> str:
+    """Short label for link type used inside messages."""
+    return {
+        "linktree": "Linktree",
+        "bio_link": "bio link",
+        "whatsapp": "WhatsApp direto",
+        "ifood": "iFood",
+        "delivery_app": "app de delivery",
+        "social_profile": "rede social",
+    }.get(link_type, "link atual")
+
+
 def _extract_reference_from_captions(captions: list[str]) -> tuple[str, str]:
     """Pull a specific hook from recent captions when possible."""
     for caption in captions:
@@ -58,45 +70,39 @@ def _fallback_messages(place_data: dict[str, Any], ig_data: dict[str, Any], scor
     link_type = place_data.get("current_link_type") or ""
 
     if sentence:
-        opening = f"Vi esse post de vocês falando de {keyword} e curti a forma como a {name} se posiciona."
+        opening = f"Vi o post de vocês sobre {keyword} e fui pesquisar mais sobre a {name}."
         angle = "caption_especifica"
     elif neighborhood:
-        opening = f"Vi a {name} em {neighborhood} e o perfil de vocês passa bastante cuidado com imagem."
-        angle = "bairro_e_marca"
+        opening = f"Passei pelo perfil da {name} lá em {neighborhood} e curti bastante a identidade de vocês."
+        angle = "bairro"
     else:
-        opening = f"Passei pelo perfil da {name} e achei a marca bem redonda pra proposta que vocês têm."
+        opening = f"Pesquisei a {name} e achei que o posicionamento de vocês tá bem sólido."
         angle = "marca"
 
-    second_line = "Preparei uma demo rápida de site pensando no momento da marca de vocês."
-    if link_type:
-        second_line = f"Preparei uma demo rápida de site pensando em tirar a dependência do {link_type}."
+    if link_type and link_type not in ("sem_link", "site_real"):
+        pitch = f"Montei uma demo de site pensando em tirar a dependência do {_link_type_label_short(link_type)} de vocês."
+    else:
+        pitch = "Montei uma demo de site inspirada no visual e no estilo de vocês."
 
     whatsapp_message = _sanitize_message_lines(
-        "\n".join(
-            [
-                opening,
-                second_line,
-                "Ficou bem alinhada com os pontos fortes que vi no perfil de vocês.",
-                "Posso te mandar pra ver se faz sentido?",
-            ]
-        )
+        "\n".join([opening, pitch, "Posso mandar pra ver se faz sentido?"])
+    )
+    whatsapp_followup = _sanitize_message_lines(
+        "\n".join([
+            f"Oi, pode ter sido que minha msg anterior não chegou pra quem decide sobre o site da {name}.",
+            "Se não for você, pode encaminhar? O demo ficou bem bacana, vale 2 minutos.",
+        ])
     )
     instagram_dm = _sanitize_message_lines(
-        "\n".join(
-            [
-                opening,
-                "Montei uma demo rápida de site inspirada no perfil de vocês.",
-                "Se quiser, te mando por aqui.",
-            ]
-        )
+        "\n".join([opening, "Fiz uma demo de site pra vocês. Posso mandar?"])
     )
-    subject_email = f"Demo de site para {name}"
     if score_data.get("classification") == "HOT":
         angle = f"{angle}_hot"
     return {
         "whatsapp_message": whatsapp_message,
+        "whatsapp_followup": whatsapp_followup,
         "instagram_dm": instagram_dm,
-        "subject_email": subject_email,
+        "subject_email": f"Demo de site — {name}",
         "approach_angle": angle,
     }
 
@@ -124,53 +130,55 @@ def _gemini_prompt(place_data: dict[str, Any], ig_data: dict[str, Any], score_da
     captions = ig_data.get("recent_captions") or ["", "", ""]
     neighborhood = place_data.get("neighborhood") or "não identificado"
     city = place_data.get("city") or "não identificado"
+    name = place_data.get("name", "o restaurante")
+    link_type = place_data.get("current_link_type") or "sem site"
+    strengths = ", ".join(score_data.get("key_strengths") or [])
     return f"""
-Você é um especialista em vendas consultivas B2B para o mercado de restaurantes premium brasileiros.
-Escreva uma mensagem de primeiro contato via WhatsApp para o proprietário do restaurante descrito abaixo.
+Você é freelancer de web para restaurantes premium no Brasil. Vende sites profissionais, trabalha de forma independente.
 
-REGRAS OBRIGATÓRIAS:
-1. Máximo 4 linhas de texto. Sem emojis excessivos (máximo 1).
-2. Referenciar algo ESPECÍFICO e REAL do restaurante (um prato pelo nome, o bairro, algo das captions).
-3. NÃO revelar que é automação. Escrever como pessoa real.
-4. NÃO citar preço, não fazer pitch completo.
-5. Criar curiosidade com "preparei uma demo" sem mostrar.
-6. Terminar com pergunta simples de baixo comprometimento.
-7. Tom: informal mas profissional. PT-BR coloquial.
-8. NÃO usar palavras: solução, incrível, incrível, transformar, potencializar, alavancar, revolucionar.
-9. Responda APENAS com JSON válido.
+CONTEXTO DO LEAD:
+- Nome: {name}
+- Bairro: {neighborhood} — Cidade: {city}
+- Link atual: {link_type} (este é o problema que você resolve com um site profissional)
+- Instagram: @{ig_data.get("username", "n/d")} — {ig_data.get("followers_count", "n/d")} seguidores, {ig_data.get("engagement_rate", "n/d")}% engajamento
+- Google: {place_data.get("rating", "n/d")}★ com {place_data.get("user_ratings_total", "n/d")} avaliações
+- Pontos fortes: {strengths}
+- Caption recente 1: {captions[0] if len(captions) > 0 else ""}
+- Caption recente 2: {captions[1] if len(captions) > 1 else ""}
+- Caption recente 3: {captions[2] if len(captions) > 2 else ""}
 
-Formato JSON:
+ESCREVA 3 mensagens:
+
+== MENSAGEM 1 — PRIMEIRO CONTATO (WhatsApp) ==
+Objetivo: chegar no DONO. Quem recebe pode ser funcionário — a mensagem precisa ser boa o suficiente para ser encaminhada.
+Regras:
+- 3 linhas no máximo. Máximo 1 emoji no total.
+- Abre com observação ESPECÍFICA: mencione o prato/produto das captions, o bairro, ou um detalhe real. Nada genérico.
+- Crie curiosidade mencionando "montei uma versão do site de vocês" sem explicar mais.
+- Feche com pergunta simples de sim/não: "posso mandar?" ou "vale dar uma olhada?"
+- Tom: direto, confiante, PT-BR coloquial, como freelancer que realmente pesquisou o lugar.
+
+== MENSAGEM 2 — FOLLOW-UP (enviar se não responder em 3 dias) ==
+Objetivo: reengajar com ângulo diferente, sem parecer insistente.
+Regras:
+- 2 linhas no máximo. Tom mais casual ainda.
+- Não repita o argumento da mensagem 1. Novo gancho: "o demo ficou bem bacana", "tive uma ideia nova", etc.
+- Admita que pode não ter chegado ao dono: "se você não decide sobre isso, pode encaminhar?"
+- Sem "Olá" de novo, sem "seguindo minha mensagem anterior".
+
+== MENSAGEM 3 — INSTAGRAM DM ==
+Objetivo: versão adaptada para DM. Mais curta (2 linhas), tom mais jovem e informal.
+
+PALAVRAS PROIBIDAS em todas: solução, incrível, transformar, potencializar, alavancar, revolucionar, resultado.
+
+Responda APENAS com JSON válido:
 {{
   "whatsapp_message": "...",
+  "whatsapp_followup": "...",
   "instagram_dm": "...",
-  "subject_email": "...",
-  "approach_angle": "..."
+  "subject_email": "Demo site — {name}",
+  "approach_angle": "descrição curta do ângulo (ex: caption_especifica, bairro_referencia, link_atual)"
 }}
-
-Dados do restaurante:
-- Nome: {place_data.get("name", "")}
-- Bairro: {neighborhood}
-- Cidade: {city}
-- Seguidores: {ig_data.get("followers_count", "n/d")}
-- Engajamento: {ig_data.get("engagement_rate", "n/d")}%
-- Tipo de link atual: {place_data.get("current_link_type", "")}
-- Categoria Maps: {place_data.get("category", "")}
-- Categoria Instagram: {ig_data.get("category", "")}
-- Score: {score_data.get("total_score", 0)}
-- Pontos fortes: {", ".join(score_data.get("key_strengths") or [])}
-- Caption 1: {captions[0] if len(captions) > 0 else ""}
-- Caption 2: {captions[1] if len(captions) > 1 else ""}
-- Caption 3: {captions[2] if len(captions) > 2 else ""}
-
-Exemplos de abertura forte (adaptar ao contexto):
-- "Vi o [prato específico] de vocês no Instagram..."
-- "Passei em frente à [nome] outro dia em [bairro]..."
-- "Alguém me indicou a [nome] essa semana..."
-
-Exemplos de fechamento forte:
-- "Preparei uma versão do site de vocês. Posso mandar?"
-- "Montei algo baseado no perfil de vocês. Vale dar uma olhada?"
-- "Fiz uma demo rápida pra vocês. Curioso pra saber o que acha."
 """.strip()
 
 
@@ -226,6 +234,7 @@ def generate_message(place_data: dict[str, Any], ig_data: dict[str, Any], score_
                     continue
                 return {
                     "whatsapp_message": _sanitize_message_lines(parsed.get("whatsapp_message", "")),
+                    "whatsapp_followup": _sanitize_message_lines(parsed.get("whatsapp_followup", "")),
                     "instagram_dm": _sanitize_message_lines(parsed.get("instagram_dm", "")),
                     "subject_email": parsed.get("subject_email", "")[:120],
                     "approach_angle": parsed.get("approach_angle", model_name),

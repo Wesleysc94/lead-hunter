@@ -30,8 +30,8 @@ LEAD_TABLE_FIELDS = {
     "neighborhood", "city", "phone", "instagram_username", "link_type",
     "link_type_label", "followers_count", "engagement_rate", "google_reviews",
     "google_rating", "last_post_days", "key_strengths", "whatsapp_message",
-    "instagram_dm", "subject_email", "approach_angle", "collected_at",
-    "maps_url", "website", "is_new", "run_count", "first_seen_at",
+    "whatsapp_followup", "instagram_dm", "subject_email", "approach_angle",
+    "collected_at", "maps_url", "website", "is_new", "run_count", "first_seen_at",
 }
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -81,6 +81,7 @@ def _sheets_row_to_lead(row: dict) -> dict:
         "last_post_days": _safe_int(row.get("Último post (dias atrás)")),
         "key_strengths": strengths,
         "whatsapp_message": row.get("Mensagem WhatsApp", ""),
+        "whatsapp_followup": "",
         "instagram_dm": row.get("Mensagem Instagram DM", ""),
         "collected_at": row.get("Data de coleta", ""),
         "maps_url": "",
@@ -133,6 +134,16 @@ def _strip_lead(lead: dict) -> dict:
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/api/config/targets")
+def api_config_targets():
+    sys.path.insert(0, str(BASE_DIR))
+    from lead_hunter import config as lh_config  # noqa: PLC0415
+    return jsonify({
+        "cities": lh_config.TARGET_CITIES,
+        "categories": lh_config.TARGET_CATEGORIES,
+    })
+
 
 @app.route("/")
 def index():
@@ -247,12 +258,24 @@ def api_run_start():
         max_apify = body.get("max_apify_calls")
         if max_apify and int(max_apify) > 0:
             cmd += ["--max-apify-calls", str(int(max_apify))]
-        limit_cities = body.get("limit_cities")
-        if limit_cities and int(limit_cities) > 0:
-            cmd += ["--limit-cities", str(int(limit_cities))]
-        limit_cats = body.get("limit_categories")
-        if limit_cats and int(limit_cats) > 0:
-            cmd += ["--limit-categories", str(int(limit_cats))]
+
+        selected_cities = body.get("selected_cities")
+        selected_categories = body.get("selected_categories")
+
+        if selected_cities and isinstance(selected_cities, list) and len(selected_cities) > 0:
+            cmd += ["--cities", "|".join(str(c) for c in selected_cities)]
+        else:
+            limit_cities = body.get("limit_cities")
+            if limit_cities and int(limit_cities) > 0:
+                cmd += ["--limit-cities", str(int(limit_cities))]
+
+        if selected_categories and isinstance(selected_categories, list) and len(selected_categories) > 0:
+            cmd += ["--categories", "|".join(str(c) for c in selected_categories)]
+        else:
+            limit_cats = body.get("limit_categories")
+            if limit_cats and int(limit_cats) > 0:
+                cmd += ["--limit-categories", str(int(limit_cats))]
+
         if body.get("skip_sheets"):
             cmd += ["--skip-sheets"]
         if body.get("skip_email"):
