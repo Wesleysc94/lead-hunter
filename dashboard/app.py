@@ -56,10 +56,93 @@ _run_lock = threading.Lock()
 
 # ── CRM helpers ───────────────────────────────────────────────────────────────
 
+_CRM_HEADERS = ["place_id", "crm_status", "crm_note", "contract_value",
+                "contacted_at", "updated_at", "history_json"]
+
+
+def _get_sheets_spreadsheet():
+    """Return the gspread Spreadsheet object using service account auth."""
+    sys.path.insert(0, str(BASE_DIR))
+    from lead_hunter.sheets_exporter import _authorize_gspread
+    from lead_hunter import config as lh_config
+    gc = _authorize_gspread()
+    return gc.open_by_key(lh_config.GOOGLE_SHEETS_ID)
+
+
+def _get_or_create_crm_worksheet(sh):
+    """Return the CRM worksheet, creating it with headers if absent."""
+    for ws in sh.worksheets():
+        if ws.title == "CRM":
+            return ws
+    ws = sh.add_worksheet(title="CRM", rows=1000, cols=len(_CRM_HEADERS))
+    ws.append_row(_CRM_HEADERS)
+    return ws
+
+
+def _load_crm_from_sheets() -> dict:
+    """Load CRM data from Google Sheets 'CRM' tab."""
+    sh = _get_sheets_spreadsheet()
+    ws = _get_or_create_crm_worksheet(sh)
+    rows = ws.get_all_records()
+    crm: dict = {}
+    for row in rows:
+        pid = str(row.get("place_id", "")).strip()
+        if not pid:
+            continue
+        try:
+            history = json.loads(row.get("history_json") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            history = []
+        crm[pid] = {
+            "status": str(row.get("crm_status", "novo")).strip() or "novo",
+            "note": str(row.get("crm_note", "")).strip(),
+            "contract_value": _safe_float(row.get("contract_value")),
+            "contacted_at": str(row.get("contacted_at", "")).strip() or None,
+            "updated_at": str(row.get("updated_at", "")).strip() or None,
+            "history": history,
+        }
+    return crm
+
+
+def _save_crm_to_sheets(crm: dict) -> None:
+    """Upsert CRM entries in Google Sheets 'CRM' tab."""
+    sh = _get_sheets_spreadsheet()
+    ws = _get_or_create_crm_worksheet(sh)
+
+    all_values = ws.get_all_values()
+    if not all_values:
+        ws.append_row(_CRM_HEADERS)
+        all_values = [_CRM_HEADERS]
+
+    # Map place_id → 1-based row index (skip header at index 0)
+    pid_to_row: dict[str, int] = {}
+    for i, row in enumerate(all_values[1:], start=2):
+        if row and row[0].strip():
+            pid_to_row[row[0].strip()] = i
+
+    for place_id, entry in crm.items():
+        row_data = [
+            place_id,
+            entry.get("status", "novo"),
+            entry.get("note", ""),
+            entry.get("contract_value", "") if entry.get("contract_value") is not None else "",
+            entry.get("contacted_at") or "",
+            entry.get("updated_at") or "",
+            json.dumps(entry.get("history", []), ensure_ascii=False),
+        ]
+        if place_id in pid_to_row:
+            ws.update(f"A{pid_to_row[place_id]}:G{pid_to_row[place_id]}", [row_data])
+        else:
+            ws.append_row(row_data)
+
+
 def _load_crm() -> dict:
-    """Load CRM data from disk. Returns {place_id: crm_entry}."""
+    """Load CRM data from Sheets (Vercel) or disk (local). Returns {place_id: crm_entry}."""
     if IS_VERCEL:
-        return {}
+        try:
+            return _load_crm_from_sheets()
+        except Exception:
+            return {}
     try:
         return json.loads(CRM_PATH.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
@@ -67,6 +150,9 @@ def _load_crm() -> dict:
 
 
 def _save_crm(crm: dict) -> None:
+    if IS_VERCEL:
+        _save_crm_to_sheets(crm)
+        return
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     CRM_PATH.write_text(json.dumps(crm, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -337,8 +423,6 @@ def api_leads():
 
 @app.route("/api/crm/<place_id>", methods=["PATCH"])
 def api_crm_update(place_id: str):
-    if IS_VERCEL:
-        return jsonify({"error": "CRM disponível apenas no dashboard local."}), 503
     body = request.get_json(silent=True) or {}
     new_status = body.get("status", "").lower()
     new_note   = body.get("note")
@@ -379,8 +463,6 @@ def api_crm_update(place_id: str):
 
 @app.route("/api/crm/stats")
 def api_crm_stats():
-    if IS_VERCEL:
-        return jsonify({s: 0 for s in CRM_STATUSES} | {"total_revenue": 0, "avg_deal": 0, "deals_count": 0})
     crm = _load_crm()
     counts = {s: 0 for s in CRM_STATUSES}
     total_revenue = 0.0
