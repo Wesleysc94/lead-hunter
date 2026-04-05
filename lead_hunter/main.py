@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import random
+import re
 import time
 from copy import deepcopy
 from typing import Any
@@ -169,12 +170,46 @@ def _link_type_label(link_type: str) -> str:
     return mapping.get(link_type, link_type or "N/D")
 
 
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+_EMAIL_NOISE = {"example", "email", "noreply", "no-reply", "sentry", "pixel",
+                "analytics", "wordpress", "schema.org", "wix.com", "squarespace"}
+
+
+def _find_contact_email(website_url: str) -> str:
+    """Scrape the restaurant website looking for a contact email address."""
+    if not website_url:
+        return ""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            website_url,
+            headers={"User-Agent": config.USER_AGENT},
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            html = resp.read(40_000).decode("utf-8", errors="ignore")
+
+        # mailto: links are the most reliable signal
+        mailto = re.findall(r"mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})", html, re.I)
+        for addr in mailto:
+            if not any(n in addr.lower() for n in _EMAIL_NOISE):
+                return addr.lower()
+
+        # fallback: email pattern anywhere in page source
+        for addr in _EMAIL_RE.findall(html):
+            if not any(n in addr.lower() for n in _EMAIL_NOISE):
+                return addr.lower()
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
 def _build_lead_record(
     place_data: dict[str, Any],
     link_data: dict[str, Any],
     ig_data: dict[str, Any],
     score_data: dict[str, Any],
     messages: dict[str, Any],
+    contact_email: str = "",
 ) -> dict[str, Any]:
     """Build the flattened lead record used by Sheets, email, and checkpoint."""
     status = score_data.get("classification", "SKIP")
@@ -202,6 +237,8 @@ def _build_lead_record(
         "whatsapp_followup": messages.get("whatsapp_followup", ""),
         "instagram_dm": messages.get("instagram_dm", ""),
         "subject_email": messages.get("subject_email", ""),
+        "email_body": messages.get("email_body", ""),
+        "contact_email": contact_email,
         "approach_angle": messages.get("approach_angle", ""),
         "collected_at": place_data.get("collected_at", ""),
         "maps_url": place_data.get("maps_url", ""),
@@ -316,7 +353,10 @@ def main() -> int:
                     if score_data["classification"] in {"HOT", "WARM"} and not score_data["disqualified"]:
                         time.sleep(config.GEMINI_DELAY_SECONDS)
                         messages = generate_message(score_input_place, ig_data, score_data)
-                        lead_record = _build_lead_record(score_input_place, link_data, ig_data, score_data, messages)
+                        contact_email = _find_contact_email(score_input_place.get("website", ""))
+                        if contact_email:
+                            logger.info("[EMAIL] %s → %s", score_input_place.get("name", ""), contact_email)
+                        lead_record = _build_lead_record(score_input_place, link_data, ig_data, score_data, messages, contact_email)
                         _upsert_qualified_lead(state, lead_record)
                         _refresh_stats(state)
                     else:

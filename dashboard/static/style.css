@@ -1036,6 +1036,10 @@ input, select { font-family: inherit; }
 .btn-copy-fu { border-color: rgba(232, 93, 4, 0.4); color: var(--orange); }
 .btn-copy-fu:hover { border-color: var(--orange); color: var(--orange); background: rgba(232,93,4,0.08); }
 
+/* ── Email copy button ── */
+.btn-copy-email { border-color: rgba(96, 165, 250, 0.4); color: #60a5fa; }
+.btn-copy-email:hover { border-color: #60a5fa; color: #60a5fa; background: rgba(96,165,250,0.08); }
+
 /* ── Restaurant contact row ── */
 .restaurant-contact {
   margin-top: 4px;

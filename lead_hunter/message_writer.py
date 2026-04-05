@@ -68,6 +68,8 @@ def _fallback_messages(place_data: dict[str, Any], ig_data: dict[str, Any], scor
     captions = ig_data.get("recent_captions") or []
     keyword, sentence = _extract_reference_from_captions(captions)
     link_type = place_data.get("current_link_type") or ""
+    reviews = place_data.get("user_ratings_total", "")
+    followers = ig_data.get("followers_count", "")
 
     if sentence:
         opening = f"Vi o post de vocês sobre {keyword} e fui pesquisar mais sobre a {name}."
@@ -96,13 +98,33 @@ def _fallback_messages(place_data: dict[str, Any], ig_data: dict[str, Any], scor
     instagram_dm = _sanitize_message_lines(
         "\n".join([opening, "Fiz uma demo de site pra vocês. Posso mandar?"])
     )
+
+    social_proof = ""
+    if reviews:
+        social_proof += f"{reviews} avaliações no Google"
+    if followers:
+        social_proof += (", " if social_proof else "") + f"{followers} seguidores no Instagram"
+
+    email_body = (
+        f"{name},\n\n"
+        f"Dei uma olhada no perfil de vocês{f' — {social_proof}' if social_proof else ''} "
+        f"e a marca está bem construída. Mas a presença digital ainda não acompanha esse peso.\n\n"
+        f"Separei uma referência do que isso poderia ser:\n"
+        f"→ https://aura-burger.vercel.app/\n\n"
+        f"A lógica aqui é posicionamento e experiência — o site que converte antes do cardápio. "
+        f"A ideia não é substituir o que vocês usam, é mostrar um padrão diferente de apresentação.\n\n"
+        f"Se fizer sentido, é só responder — explico em dois parágrafos como isso se aplica à estrutura de vocês.\n\n"
+        f"Wesley\nWX Digital Studio"
+    )
+
     if score_data.get("classification") == "HOT":
         angle = f"{angle}_hot"
     return {
         "whatsapp_message": whatsapp_message,
         "whatsapp_followup": whatsapp_followup,
         "instagram_dm": instagram_dm,
-        "subject_email": f"Demo de site — {name}",
+        "subject_email": f"{name} — uma referência que separei para vocês",
+        "email_body": email_body,
         "approach_angle": angle,
     }
 
@@ -135,6 +157,8 @@ def _gemini_prompt(place_data: dict[str, Any], ig_data: dict[str, Any], score_da
     strengths = ", ".join(score_data.get("key_strengths") or [])
     return f"""
 Você é freelancer de web para restaurantes premium no Brasil. Vende sites profissionais, trabalha de forma independente.
+A demo que você usa como referência está em: https://aura-burger.vercel.app/
+Sua assinatura é: Wesley | WX Digital Studio
 
 CONTEXTO DO LEAD:
 - Nome: {name}
@@ -147,7 +171,7 @@ CONTEXTO DO LEAD:
 - Caption recente 2: {captions[1] if len(captions) > 1 else ""}
 - Caption recente 3: {captions[2] if len(captions) > 2 else ""}
 
-ESCREVA 3 mensagens:
+ESCREVA 4 mensagens:
 
 == MENSAGEM 1 — PRIMEIRO CONTATO (WhatsApp) ==
 Objetivo: chegar no DONO. Quem recebe pode ser funcionário — a mensagem precisa ser boa o suficiente para ser encaminhada.
@@ -169,6 +193,17 @@ Regras:
 == MENSAGEM 3 — INSTAGRAM DM ==
 Objetivo: versão adaptada para DM. Mais curta (2 linhas), tom mais jovem e informal.
 
+== MENSAGEM 4 — E-MAIL DE ABORDAGEM ==
+Objetivo: abordagem profissional por e-mail para quando o e-mail de contato for encontrado.
+Regras:
+- Abra direto com o nome do restaurante, sem "Bom dia" nem "tudo bem?".
+- Segunda linha: observação com dados reais (avaliações Google e/ou seguidores Instagram) + problema concreto (presença digital não acompanha o peso da marca).
+- Terceira parte: apresente o link da demo com uma seta (→ https://aura-burger.vercel.app/) e explique brevemente que a lógica é posicionamento, não substituição do que já usam.
+- Feche com CTA suave: "se fizer sentido, é só responder — explico como isso se aplica a vocês".
+- Assine como: Wesley\\nWX Digital Studio
+- Máximo 110 palavras no corpo. Tom profissional mas direto.
+- NÃO coloque o assunto dentro do corpo.
+
 PALAVRAS PROIBIDAS em todas: solução, incrível, transformar, potencializar, alavancar, revolucionar, resultado.
 
 Responda APENAS com JSON válido:
@@ -176,7 +211,8 @@ Responda APENAS com JSON válido:
   "whatsapp_message": "...",
   "whatsapp_followup": "...",
   "instagram_dm": "...",
-  "subject_email": "Demo site — {name}",
+  "subject_email": "{name} — uma referência que separei para vocês",
+  "email_body": "...",
   "approach_angle": "descrição curta do ângulo (ex: caption_especifica, bairro_referencia, link_atual)"
 }}
 """.strip()
@@ -237,6 +273,7 @@ def generate_message(place_data: dict[str, Any], ig_data: dict[str, Any], score_
                     "whatsapp_followup": _sanitize_message_lines(parsed.get("whatsapp_followup", "")),
                     "instagram_dm": _sanitize_message_lines(parsed.get("instagram_dm", "")),
                     "subject_email": parsed.get("subject_email", "")[:120],
+                    "email_body": (parsed.get("email_body", "") or "").strip(),
                     "approach_angle": parsed.get("approach_angle", model_name),
                 }
             except Exception as exc:  # noqa: BLE001

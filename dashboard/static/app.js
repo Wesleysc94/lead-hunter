@@ -440,6 +440,10 @@ function renderLeadsTable() {
       ? `<a href="https://instagram.com/${escapeAttr(lead.instagram_username)}" target="_blank" class="btn-copy" title="Ver Instagram">@${escapeHtml(lead.instagram_username)}</a>`
       : '';
 
+    const emailLink = lead.contact_email
+      ? `<a href="mailto:${escapeAttr(lead.contact_email)}" class="btn-copy btn-copy-email" title="Abrir cliente de e-mail">📧 ${escapeHtml(lead.contact_email)}</a>`
+      : '';
+
     const mapsLink = lead.maps_url
       ? `<a href="${escapeAttr(lead.maps_url)}" target="_blank" class="btn-copy btn-copy-maps" title="Ver no Maps">Maps</a>`
       : '';
@@ -456,6 +460,13 @@ function renderLeadsTable() {
       ? `<button class="btn-copy" data-msg="${escapeAttr(lead.instagram_dm)}" title="Copiar Instagram DM"><span>📋</span> Instagram</button>`
       : '';
 
+    const emailFull = lead.email_body
+      ? 'Assunto: ' + (lead.subject_email || '') + '\n\n' + lead.email_body
+      : '';
+    const copyEmail = emailFull
+      ? `<button class="btn-copy btn-copy-email" data-msg="${escapeAttr(emailFull)}" title="Copiar e-mail completo (assunto + corpo)"><span>📧</span> E-mail</button>`
+      : '';
+
     return `
       <tr data-place-id="${escapeAttr(lead.place_id || '')}" class="crm-row crm-row--${crm}">
         <td class="col-score" data-label="Score">
@@ -468,7 +479,7 @@ function renderLeadsTable() {
         </td>
         <td class="col-bairro" data-label="Bairro">${escapeHtml(lead.neighborhood || lead.city || '—')}</td>
         <td class="col-contato" data-label="Contato">
-          <div class="restaurant-contact">${phone}${igLink}${mapsLink}</div>
+          <div class="restaurant-contact">${phone}${igLink}${emailLink}${mapsLink}</div>
         </td>
         <td class="col-link" data-label="Link"><span class="link-tag">${escapeHtml(lead.link_type_label || '—')}</span></td>
         <td class="col-instagram" data-label="Instagram">${fmtNumber(lead.followers_count)}<br><small class="text-dim">${fmtPct(lead.engagement_rate)} eng.</small></td>
@@ -490,6 +501,7 @@ function renderLeadsTable() {
             ${copyWA}
             ${copyFU}
             ${copyIG}
+            ${copyEmail}
           </div>
         </td>
       </tr>`;
