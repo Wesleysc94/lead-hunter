@@ -836,6 +836,27 @@ input, select { font-family: inherit; }
 /* ── CRM Modal ── */
 .crm-sheet { max-width: 480px; }
 
+/* ── Message preview modal ── */
+.msg-preview-sheet { max-width: 560px; }
+.msg-preview-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 0;
+  min-height: 80px;
+}
+.msg-preview-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
 .crm-status-grid {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: var(--gap-sm); margin-bottom: var(--gap-lg);

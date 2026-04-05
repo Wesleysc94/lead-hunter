@@ -563,29 +563,55 @@ function wireLeadsControls() {
   // Refresh button
   document.getElementById('btn-refresh-leads').addEventListener('click', fetchLeads);
 
-  // Copy to clipboard — event delegation on tbody
+  // Message preview modal
+  let _previewSourceBtn = null;
+  document.getElementById('modal-msg-preview-close').addEventListener('click', () => {
+    document.getElementById('modal-msg-preview').classList.add('hidden');
+    _previewSourceBtn = null;
+  });
+  document.getElementById('modal-msg-preview').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-msg-preview')) {
+      document.getElementById('modal-msg-preview').classList.add('hidden');
+      _previewSourceBtn = null;
+    }
+  });
+  document.getElementById('msg-preview-copy-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('msg-preview-body').textContent;
+    try {
+      await navigator.clipboard.writeText(msg);
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = msg;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const btn = document.getElementById('msg-preview-copy-btn');
+    const orig = btn.innerHTML;
+    btn.classList.add('copied');
+    btn.innerHTML = '<span>✓</span> Copiado!';
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = orig; }, 2000);
+    if (_previewSourceBtn) {
+      const origSrc = _previewSourceBtn.innerHTML;
+      _previewSourceBtn.classList.add('copied');
+      _previewSourceBtn.innerHTML = '<span>✓</span> Copiado!';
+      setTimeout(() => { _previewSourceBtn.classList.remove('copied'); _previewSourceBtn.innerHTML = origSrc; }, 2000);
+    }
+  });
+
+  // Copy buttons — open preview modal instead of copying directly
   document.getElementById('leads-tbody').addEventListener('click', async e => {
     const copyBtn = e.target.closest('.btn-copy[data-msg]');
     if (copyBtn) {
       const msg = copyBtn.dataset.msg;
-      try {
-        await navigator.clipboard.writeText(msg);
-      } catch (_) {
-        const ta = document.createElement('textarea');
-        ta.value = msg;
-        ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      const originalHTML = copyBtn.innerHTML;
-      copyBtn.classList.add('copied');
-      copyBtn.innerHTML = '<span>✓</span> Copiado!';
-      setTimeout(() => {
-        copyBtn.classList.remove('copied');
-        copyBtn.innerHTML = originalHTML;
-      }, 2000);
+      const title = copyBtn.title || 'Mensagem';
+      document.getElementById('msg-preview-title').textContent = title;
+      document.getElementById('msg-preview-body').textContent = msg;
+      document.getElementById('msg-preview-copy-btn').innerHTML = '📋 Copiar';
+      document.getElementById('msg-preview-copy-btn').classList.remove('copied');
+      _previewSourceBtn = copyBtn;
+      document.getElementById('modal-msg-preview').classList.remove('hidden');
       return;
     }
 

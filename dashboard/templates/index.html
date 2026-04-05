@@ -369,6 +369,23 @@
     </div>
   </div>
 
+  <!-- ═══ MODAL PRÉVIA DE MENSAGEM ═══ -->
+  <div class="sel-overlay hidden" id="modal-msg-preview" role="dialog" aria-modal="true" aria-label="Prévia da mensagem">
+    <div class="sel-sheet msg-preview-sheet">
+      <div class="sel-header">
+        <span class="sel-title" id="msg-preview-title">Mensagem</span>
+        <button class="sel-close" id="modal-msg-preview-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="sel-body">
+        <pre class="msg-preview-body" id="msg-preview-body"></pre>
+      </div>
+      <div class="sel-footer">
+        <span class="msg-preview-hint">Leia antes de copiar</span>
+        <button class="btn btn-primary btn-sm" id="msg-preview-copy-btn">📋 Copiar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/app.js?v={{ ver }}"></script>
 </body>
 </html>
