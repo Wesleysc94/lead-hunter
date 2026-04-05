@@ -1036,6 +1036,25 @@ input, select { font-family: inherit; }
 .btn-copy-fu { border-color: rgba(232, 93, 4, 0.4); color: var(--orange); }
 .btn-copy-fu:hover { border-color: var(--orange); color: var(--orange); background: rgba(232,93,4,0.08); }
 
+/* ── Vercel local note banner ── */
+.vercel-local-note {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: rgba(200, 16, 46, 0.06);
+  border: 1px solid rgba(200, 16, 46, 0.25);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.vercel-local-note strong { color: var(--text-primary); }
+.vercel-local-note code {
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px; border-radius: 4px;
+  font-family: monospace; font-size: 0.82rem;
+}
+.vercel-local-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+
 /* ── Email copy button ── */
 .btn-copy-email { border-color: rgba(96, 165, 250, 0.4); color: #60a5fa; }
 .btn-copy-email:hover { border-color: #60a5fa; color: #60a5fa; background: rgba(96,165,250,0.08); }

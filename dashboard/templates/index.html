@@ -123,6 +123,17 @@
     </section>
 
     <!-- ── 3. CONTROLES ── -->
+    {% if is_vercel %}
+    <section class="section">
+      <div class="vercel-local-note">
+        <span class="vercel-local-icon">💻</span>
+        <div>
+          <strong>Pipeline roda localmente</strong><br>
+          Para iniciar novas buscas, abra o dashboard no seu computador com <code>python dashboard/app.py</code>. Os leads coletados aparecem aqui automaticamente via Google Sheets.
+        </div>
+      </div>
+    </section>
+    {% else %}
     <section class="section">
       <h2 class="section-title">Controles do Pipeline</h2>
 
@@ -177,8 +188,10 @@
         </div>
       </div>
     </section>
+    {% endif %}
 
     <!-- ── 4. LOG ── -->
+    {% if not is_vercel %}
     <section class="section">
       <div class="section-header-row">
         <h2 class="section-title">Log em Tempo Real</h2>
@@ -206,6 +219,7 @@
         <span id="sse-status" class="sse-status sse-connecting">● Conectando...</span>
       </div>
     </section>
+    {% endif %}
 
     <!-- ── 5. LEADS ── -->
     <section class="section">
