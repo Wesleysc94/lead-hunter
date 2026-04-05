@@ -72,31 +72,34 @@ def _fallback_messages(place_data: dict[str, Any], ig_data: dict[str, Any], scor
     followers = ig_data.get("followers_count", "")
 
     if sentence:
-        opening = f"Vi o post de vocês sobre {keyword} e fui pesquisar mais sobre a {name}."
+        opening = f"Vi o post de vocês sobre {keyword} — fui pesquisar a {name} depois disso."
+        ig_opening = f"Esse post sobre {keyword} me chamou atenção — perfil forte, site ainda não acompanha."
         angle = "caption_especifica"
     elif neighborhood:
-        opening = f"Passei pelo perfil da {name} lá em {neighborhood} e curti bastante a identidade de vocês."
+        opening = f"Pesquisei a {name} em {neighborhood} — marca sólida, presença digital ainda tá abaixo disso."
+        ig_opening = f"Feed da {name} tem identidade clara — só o site ainda não chegou nesse nível."
         angle = "bairro"
     else:
-        opening = f"Pesquisei a {name} e achei que o posicionamento de vocês tá bem sólido."
+        opening = f"Pesquisei a {name} — avaliações boas, mas a presença digital ainda não acompanha o peso da marca."
+        ig_opening = f"Perfil da {name} tem posicionamento claro — o site ainda não chegou nesse nível."
         angle = "marca"
 
     if link_type and link_type not in ("sem_link", "site_real"):
-        pitch = f"Montei uma demo de site pensando em tirar a dependência do {_link_type_label_short(link_type)} de vocês."
+        pitch = f"Montei uma demo de site pra vocês tirando a dependência do {_link_type_label_short(link_type)}."
     else:
-        pitch = "Montei uma demo de site inspirada no visual e no estilo de vocês."
+        pitch = "Montei uma demo de site pensada pra vocês. Posso mandar o link?"
 
     whatsapp_message = _sanitize_message_lines(
-        "\n".join([opening, pitch, "Posso mandar pra ver se faz sentido?"])
+        "\n".join([opening, pitch, "Posso mandar o link?"])
     )
     whatsapp_followup = _sanitize_message_lines(
         "\n".join([
-            f"Oi, pode ter sido que minha msg anterior não chegou pra quem decide sobre o site da {name}.",
-            "Se não for você, pode encaminhar? O demo ficou bem bacana, vale 2 minutos.",
+            f"O demo que fiz pra {name} ficou bem bacana — pode ter sido que não chegou pra quem decide.",
+            "Se não for você, pode encaminhar? Vale 2 minutos.",
         ])
     )
     instagram_dm = _sanitize_message_lines(
-        "\n".join([opening, "Fiz uma demo de site pra vocês. Posso mandar?"])
+        "\n".join([ig_opening, "Fiz uma demo de site pra vocês — posso mandar o link?"])
     )
 
     social_proof = ""
@@ -176,22 +179,28 @@ ESCREVA 4 mensagens:
 == MENSAGEM 1 — PRIMEIRO CONTATO (WhatsApp) ==
 Objetivo: chegar no DONO. Quem recebe pode ser funcionário — a mensagem precisa ser boa o suficiente para ser encaminhada.
 Regras:
-- 3 linhas no máximo. Máximo 1 emoji no total.
-- Abre com observação ESPECÍFICA: mencione o prato/produto das captions, o bairro, ou um detalhe real. Nada genérico.
-- Crie curiosidade mencionando "montei uma versão do site de vocês" sem explicar mais.
-- Feche com pergunta simples de sim/não: "posso mandar?" ou "vale dar uma olhada?"
-- Tom: direto, confiante, PT-BR coloquial, como freelancer que realmente pesquisou o lugar.
+- PROIBIDO abrir com "Oi", "Olá", "Bom dia", "Tudo bem?" ou qualquer cumprimento. Começa direto na observação.
+- Linha 1: observação ESPECÍFICA que prova que você pesquisou — cite o nome do prato/produto das captions, o bairro, ou dado real (avaliações, seguidores). Nunca genérico.
+- Linha 2: o gancho — "montei um site/demo pra vocês" com uma referência ao que está faltando (ex: o link atual, a falta de site à altura da marca). Não explique o que é o site.
+- Linha 3: CTA de sim/não, direto: "posso mandar o link?" ou "vale dar uma olhada?". Nada mais.
+- Máximo 1 emoji no total. Tom: PT-BR coloquial, confiante, como freelancer que pesquisou de verdade.
 
 == MENSAGEM 2 — FOLLOW-UP (enviar se não responder em 3 dias) ==
 Objetivo: reengajar com ângulo diferente, sem parecer insistente.
 Regras:
-- 2 linhas no máximo. Tom mais casual ainda.
-- Não repita o argumento da mensagem 1. Novo gancho: "o demo ficou bem bacana", "tive uma ideia nova", etc.
-- Admita que pode não ter chegado ao dono: "se você não decide sobre isso, pode encaminhar?"
-- Sem "Olá" de novo, sem "seguindo minha mensagem anterior".
+- PROIBIDO abrir com "Oi", "Olá" ou qualquer cumprimento.
+- 2 linhas no máximo. Tom ainda mais casual — como se fosse uma segunda mensagem num conversa já aberta.
+- Novo gancho diferente da msg 1: pode ser "o demo ficou bem bacana", "tive uma ideia para vocês", ou curiosidade nova.
+- Reconheça que pode não ter chegado à pessoa certa: "se não for com você que decide, pode encaminhar?"
+- Sem "seguindo minha mensagem anterior" nem referência direta ao que foi dito antes.
 
 == MENSAGEM 3 — INSTAGRAM DM ==
-Objetivo: versão adaptada para DM. Mais curta (2 linhas), tom mais jovem e informal.
+Objetivo: versão adaptada para DM. Tom mais jovem e de Instagram. Máximo 2 linhas.
+Regras:
+- PROIBIDO abrir com "Oi", "Olá" ou cumprimentos.
+- Abre com observação sobre o perfil deles (visual, conteúdo, estética) — algo que faça sentido vindo de quem viu o feed.
+- Segunda linha: o gancho do demo ou da ideia, com CTA direto.
+- Pode usar 1 emoji se encaixar naturalmente.
 
 == MENSAGEM 4 — E-MAIL DE ABORDAGEM ==
 Objetivo: abordagem profissional por e-mail para quando o e-mail de contato for encontrado.
