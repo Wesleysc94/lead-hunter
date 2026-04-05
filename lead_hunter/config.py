@@ -64,6 +64,7 @@ GEMINI_FALLBACK_MODELS = [
 ]
 
 TARGET_CITIES = [
+    # ── São Paulo capital — zonas oeste/sul/centro (premium consolidado) ──
     "Vila Madalena, São Paulo",
     "Pinheiros, São Paulo",
     "Itaim Bibi, São Paulo",
@@ -74,13 +75,104 @@ TARGET_CITIES = [
     "Consolação, São Paulo",
     "Brooklin, São Paulo",
     "Campo Belo, São Paulo",
+    "Higienópolis, São Paulo",
+    "Morumbi, São Paulo",
+    "Aclimação, São Paulo",
+    "Paraíso, São Paulo",
+    "Vila Mariana, São Paulo",
+    "Liberdade, São Paulo",
+    # ── São Paulo capital — zona leste ──
+    "Tatuapé, São Paulo",
+    "Anália Franco, São Paulo",
+    "Mooca, São Paulo",
+    "Penha, São Paulo",
+    "Itaquera, São Paulo",
+    # ── São Paulo capital — zona norte ──
+    "Santana, São Paulo",
+    "Tucuruvi, São Paulo",
+    # ── Grande São Paulo / ABC / interior ──
+    "Santo André, São Paulo",
+    "São Caetano do Sul, São Paulo",
+    "São Bernardo do Campo, São Paulo",
+    "Guarulhos, São Paulo",
+    "Osasco, São Paulo",
+    "Alphaville, Santana de Parnaíba",
+    "Campinas, São Paulo",
+    "Ribeirão Preto, São Paulo",
+    "Santos, São Paulo",
+    "São José dos Campos, São Paulo",
+    "Sorocaba, São Paulo",
+    "Jundiaí, São Paulo",
+    "São José do Rio Preto, São Paulo",
+    "Bauru, São Paulo",
+    # ── Rio de Janeiro capital ──
     "Ipanema, Rio de Janeiro",
     "Leblon, Rio de Janeiro",
     "Botafogo, Rio de Janeiro",
     "Barra da Tijuca, Rio de Janeiro",
+    "Gávea, Rio de Janeiro",
+    "Flamengo, Rio de Janeiro",
+    "Santa Teresa, Rio de Janeiro",
+    "Copacabana, Rio de Janeiro",
+    "Jardim Botânico, Rio de Janeiro",
+    "Lagoa, Rio de Janeiro",
+    "Tijuca, Rio de Janeiro",
+    # ── Rio de Janeiro — outras cidades ──
+    "Niterói, Rio de Janeiro",
+    "Petrópolis, Rio de Janeiro",
+    # ── Minas Gerais ──
     "Savassi, Belo Horizonte",
+    "Lourdes, Belo Horizonte",
+    "Funcionários, Belo Horizonte",
+    "Santa Lúcia, Belo Horizonte",
+    "Pampulha, Belo Horizonte",
+    "Uberlândia, Minas Gerais",
+    "Juiz de Fora, Minas Gerais",
+    # ── Paraná ──
     "Batel, Curitiba",
+    "Água Verde, Curitiba",
+    "Bigorrilho, Curitiba",
+    "Ecoville, Curitiba",
+    "Champagnat, Curitiba",
+    "Londrina, Paraná",
+    "Maringá, Paraná",
+    # ── Rio Grande do Sul ──
     "Moinhos de Vento, Porto Alegre",
+    "Petrópolis, Porto Alegre",
+    "Bela Vista, Porto Alegre",
+    "Auxiliadora, Porto Alegre",
+    "Caxias do Sul, Rio Grande do Sul",
+    # ── Distrito Federal ──
+    "Asa Sul, Brasília",
+    "Asa Norte, Brasília",
+    "Lago Sul, Brasília",
+    "Sudoeste, Brasília",
+    "Noroeste, Brasília",
+    # ── Goiás ──
+    "Setor Marista, Goiânia",
+    "Setor Bueno, Goiânia",
+    "Jardim Goiás, Goiânia",
+    # ── Santa Catarina ──
+    "Jurerê Internacional, Florianópolis",
+    "Lagoa da Conceição, Florianópolis",
+    "Centro, Florianópolis",
+    "Blumenau, Santa Catarina",
+    "Joinville, Santa Catarina",
+    # ── Bahia ──
+    "Barra, Salvador",
+    "Pituba, Salvador",
+    "Horto Florestal, Salvador",
+    "Federação, Salvador",
+    # ── Pernambuco ──
+    "Boa Viagem, Recife",
+    "Graças, Recife",
+    "Casa Forte, Recife",
+    # ── Ceará ──
+    "Meireles, Fortaleza",
+    "Aldeota, Fortaleza",
+    "Varjota, Fortaleza",
+    # ── Mato Grosso do Sul ──
+    "Jardim dos Estados, Campo Grande",
 ]
 
 TARGET_CATEGORIES = [
