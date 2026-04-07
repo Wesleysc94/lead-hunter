@@ -433,14 +433,19 @@ def api_crm_update(place_id: str):
     entry = _crm_entry_for(place_id, crm)
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
 
-    if new_status and new_status != entry.get("status"):
-        old_status = entry.get("status", "novo")
+    old_status = entry.get("status", "novo")
+    status_changed = new_status and new_status != old_status
+    note_changed = new_note is not None and new_note != entry.get("note")
+
+    if status_changed or (note_changed and new_note):
         entry["history"].append({
             "at": now,
             "from": old_status,
-            "to": new_status,
+            "to": new_status or old_status,
             "note": new_note or "",
         })
+
+    if status_changed:
         entry["status"] = new_status
         if new_status == "enviado" and not entry.get("contacted_at"):
             entry["contacted_at"] = now
