@@ -84,13 +84,25 @@ def _refresh_stats(state: dict[str, Any]) -> None:
 
 
 def _save_checkpoint(state: dict[str, Any]) -> None:
-    """Persist checkpoint and latest qualified leads snapshot."""
+    """Persist checkpoint and latest qualified leads snapshot (atomic write to avoid Windows file-lock crashes)."""
     _refresh_stats(state)
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with config.CHECKPOINT_PATH.open("w", encoding="utf-8") as file:
-        json.dump(state, file, ensure_ascii=False, indent=2)
-    with config.LEADS_SNAPSHOT_PATH.open("w", encoding="utf-8") as file:
-        json.dump(state.get("qualified_leads", []), file, ensure_ascii=False, indent=2)
+
+    for target_path, data in [
+        (config.CHECKPOINT_PATH, state),
+        (config.LEADS_SNAPSHOT_PATH, state.get("qualified_leads", [])),
+    ]:
+        tmp_path = target_path.with_suffix(".tmp")
+        try:
+            with tmp_path.open("w", encoding="utf-8") as file:
+                json.dump(data, file, ensure_ascii=False, indent=2)
+            tmp_path.replace(target_path)
+        except Exception:  # noqa: BLE001
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass
+            raise
 
 
 def _validate_required_config() -> None:
